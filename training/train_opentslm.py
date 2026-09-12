@@ -233,6 +233,7 @@ def train(
     step = 0
     for epoch in range(epochs):
         epoch_loss = 0.0
+        epoch_steps = 0
         for batch in dataloader:
             optimizer.zero_grad()
             sensor_series = batch["sensor_series"].to(device)
@@ -254,6 +255,7 @@ def train(
             scheduler.step()
 
             epoch_loss += loss.item()
+            epoch_steps += 1
             step += 1
 
             if step % 20 == 0 or step == 1:
@@ -264,7 +266,7 @@ def train(
             if max_steps and step >= max_steps:
                 break
 
-        print(f"✅ Epoch {epoch + 1} Completed. Avg Loss: {epoch_loss / max(1, step):.4f}")
+        print(f"✅ Epoch {epoch + 1} Completed. Avg Loss: {epoch_loss / max(1, epoch_steps):.4f}")
         if max_steps and step >= max_steps:
             break
 
@@ -291,7 +293,10 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument(
-        "--max-steps", type=int, default=15, help="Quick calibration steps for demo verification"
+        "--max-steps",
+        type=int,
+        default=None,
+        help="Optional step cap (useful for quick verification/calibration)",
     )
     parser.add_argument("--save-dir", type=str, default="models/aeroguard_tslm")
     args = parser.parse_args()
