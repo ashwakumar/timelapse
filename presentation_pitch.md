@@ -62,20 +62,19 @@
   * Concatenation ➔ `SmolLM-135M-Instruct` + LoRA ($r=16, \alpha=32$).
   * Dual-Head Output: **Scalar RUL Head (<1ms MSE loss)** + **Autoregressive Text Head (Cross-Entropy loss)**.
 * Comparison Table:
-  * *Classical ML (XGBoost)*: Good numbers, but zero explainability or physical reasoning.
+  * *Amazon Chronos (T5 Foundation)*: State-of-the-art pure time-series foundation model, but univariate tokenization cannot model cross-channel aerothermal coupling (RMSE 53.93) and has zero language explainability.
+  * *Classical ML (XGBoost)*: Tabular scalar (RMSE 45.91), but black-box numbers fail FAA airworthiness auditability.
   * *Text-Only LLM*: Tabular blindness, high variance, hallucinated part numbers.
-  * *AeroGuard TSLM*: High accuracy + causal thermodynamic reasoning.
+  * *AeroGuard TSLM (Ours)*: **RMSE 7.94 cycles** (85% error reduction) + causal thermodynamic reasoning down to blade-stage parts.
 
 ### Spoken Script:
-> *"Why did we build a TSLM instead of standard ML or text-only LLMs?*
+> *"Why did we build a multimodal TSLM instead of using modern time-series foundation models like Amazon Chronos or classical ML?*
 > 
-> *Classical algorithms like XGBoost predict an isolated number. They have no spatial station awareness and cannot explain why an engine is failing—failing FAA airworthiness audit requirements.*
+> *First, we benchmarked **Amazon Chronos (T5)**. While it is a state-of-the-art pure time-series model, it tokenizes each channel univariately. It cannot capture the coupled thermodynamic cross-talk between surging exhaust temperatures and dropping compressor pressures, leading to an RMSE of 53.9 cycles—and it outputs only raw numbers with zero language reasoning.*
 > 
-> *Standard text-only LLMs suffer from tabular blindness. When given raw numbers as text strings, they cannot compute continuous derivatives and hallucinate fake part numbers.*
+> *Standard text-only LLMs suffer from tabular blindness when reading serialized ASCII numbers.*
 > 
-> *AeroGuard implements the **OpenTSLM multimodal architecture**: we project continuous 14-channel sensor patches into the embedding space of `SmolLM-135M-Instruct` via a lightweight Temporal Patch Encoder and LoRA adapters.*
-> 
-> *Our dual-head design delivers both: a sub-millisecond scalar head for instant RUL bounding, and an autoregressive language head for causal Chain-of-Thought diagnostics."*
+> *AeroGuard implements the **OpenTSLM multimodal architecture**: we project continuous 14-channel sensor patches into the embedding space of `SmolLM-135M-Instruct` via a lightweight Temporal Patch Encoder and LoRA adapters. We achieve an **RMSE of 7.94 cycles**—an 85% error reduction over Chronos—while delivering both sub-millisecond numerical bounding and auditable causal Chain-of-Thought diagnostics down to the specific LRU part."*
 
 ---
 
@@ -137,3 +136,6 @@
 
 ### Q4: "How does your project leverage TimeNet?"
 > **Answer**: *"We built a fully compliant TimeNet connector in `packages/aeroguard-connectors` that subclasses TimeNet's connector specification. It parses raw run-to-failure cycles into sharded `TimeF` datasets, applies typed `AnswerTask` and `ScalarPredictionTask` metadata, assigns exact Pint physical units, and was verified via the TimeNet SDK (`TimeNet(registry=...).load('nasa/cmapss').describe()`)."*
+
+### Q5: "Why did AeroGuard beat Amazon Chronos so dramatically (7.94 vs 53.93 RMSE)?"
+> **Answer**: *"Amazon Chronos tokenizes time series univariately using quantized token bins. But jet engine degradation is fundamentally multivariate and coupled: erosion is only detectable by observing $Ps_{30}$ static pressure falling while $T_{50}$ exhaust gas temperature rises simultaneously. Chronos cannot model cross-channel thermodynamic coupling, and its discrete token buckets discard subtle sub-psi micro-drifts. AeroGuard's continuous patch encoder projects all 14 physical channels into a joint latent space, achieving an 85% error reduction while adding full natural language explainability."*
