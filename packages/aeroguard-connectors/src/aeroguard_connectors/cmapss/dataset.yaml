@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://docs.timenet.ai/schemas/dataset-card-v1.schema.json
+yaml_schema_version: 1
+dataset_id: "nasa/cmapss"
+dataset_version: "1.0.0"
+name: "NASA C-MAPSS Turbofan Engine Degradation"
+description: "14-channel turbofan telemetry across 30-cycle observation windows with engineering chain-of-thought diagnostics, sensor drift summaries, and remaining useful life (RUL) regression targets from the NASA C-MAPSS FD001 dataset."
+license: "CC0-1.0"
+domains:
+  - transport
+  - observability
+tags:
+  - turbofan
+  - predictive-maintenance
+  - rul
+  - iot
+  - aerospace

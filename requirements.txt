@@ -1,0 +1,2 @@
+# Runtime dependency source of truth: pyproject.toml. Reproducible installs: uv sync --locked.
+-e .

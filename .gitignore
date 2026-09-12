@@ -1,0 +1,27 @@
+# Local environments and Python/tool caches
+.venv/
+.venv-*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ty_cache/
+.cache/
+*.egg-info/
+
+# Build products and generated run outputs
+build/
+dist/
+artifacts/
+models/
+archive/models/
+
+# Downloaded / reproducible data; keep data/README.md tracked
+data/raw/
+data/processed/
+
+# Local machine state and credentials
+.DS_Store
+.env
+.env.*
+!.env.example
