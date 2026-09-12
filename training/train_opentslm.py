@@ -163,14 +163,17 @@ class AeroGuardTSLM(nn.Module):
     ) -> tuple[float, str]:
         """Generate predicted RUL and diagnostic CoT response."""
         self.eval()
+        device = next(self.parameters()).device
         if sensor_series.dim() == 2:
             sensor_series = sensor_series.unsqueeze(0)
+        sensor_series = sensor_series.to(device)
 
         ts_embeds = self.ts_encoder(sensor_series)
         pred_rul = float(self.rul_head(ts_embeds.mean(dim=1)).squeeze().item())
 
         prompt_full = f"<|prompt|>{prompt_text}\n<|response|>"
-        input_ids = self.tokenizer.encode(prompt_full, return_tensors="pt")
+        tokenized = self.tokenizer(prompt_full, return_tensors="pt")
+        input_ids = tokenized["input_ids"].to(device)
 
         text_embeds = self.llm.get_input_embeddings()(input_ids)
         inputs_embeds = torch.cat([ts_embeds, text_embeds], dim=1)
@@ -185,7 +188,7 @@ class AeroGuardTSLM(nn.Module):
             if token_id == self.tokenizer.eos_token_id:
                 break
             generated.append(token_id)
-            next_embed = self.llm.get_input_embeddings()(next_token.unsqueeze(0))
+            next_embed = self.llm.get_input_embeddings()(next_token.unsqueeze(0).to(device))
             curr_embeds = torch.cat([curr_embeds, next_embed], dim=1)
 
         response_text = cast(str, self.tokenizer.decode(generated, skip_special_tokens=True))

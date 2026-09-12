@@ -113,7 +113,16 @@ def run_demonstration() -> None:
         print(f"│  • Prediction Error:  {error:.1f} cycles")
         print(f"│  • Health Status:     [{assessment.health_band}]")
         print(f"│  • Dispatch Action:   {assessment.action_directive}")
-        print(f"│  • Model Generated Chain-of-Thought (CoT) Diagnostic:")
+        if assessment.component_diagnosis:
+            cd = assessment.component_diagnosis
+            print(f"│  • Fault Location:    {cd.station_name}")
+            print(f"│  • Failing Assembly:  {cd.module_name} ({cd.fault_mode})")
+            print(f"│  • Isolation Score:   {cd.confidence_score * 100:.1f}% Physics Coupling")
+            print(f"│  • MRO Work Order:    {cd.maintenance_order} | {cd.borescope_inspection_task}")
+            print("│  • Prescribed Line-Replaceable Units (LRUs):")
+            for p in cd.replacement_parts:
+                print(f"│     - [{p.replacement_status:<17}] {p.part_name:<42} (OEM P/N: {p.oem_part_number})")
+        print("│  • Model Generated Chain-of-Thought (CoT) Diagnostic:")
         print(f"│    \"{assessment.cot_diagnostics}\"")
         print("└" + "─" * 78)
 

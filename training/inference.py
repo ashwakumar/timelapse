@@ -14,8 +14,8 @@ from typing import Any
 
 import numpy as np
 import torch
-from peft import PeftModel
 
+from training.fault_isolation import ComponentFaultDiagnosis, isolate_component_fault
 from training.train_opentslm import AeroGuardTSLM
 
 
@@ -31,6 +31,7 @@ class AeroGuardAssessment:
     action_directive: str
     cot_diagnostics: str
     observed_drift: dict[str, float]
+    component_diagnosis: ComponentFaultDiagnosis | None = None
     model_identifier: str = "AeroGuard-TSLM (SmolLM-135M + OpenTSLM Patch Encoder)"
 
 
@@ -106,6 +107,24 @@ class AeroGuardPredictor:
         sensor_mat = np.stack(arr, axis=0)  # [14, window_size]
         return torch.tensor(sensor_mat, dtype=torch.float32).unsqueeze(0).to(self.device)
 
+    def predict_rul(self, raw_series: dict[str, list[float]]) -> float:
+        """Fast scalar RUL prediction using temporal patch encoder + MLP head (<1ms)."""
+        tensor_window = self.normalize_window(raw_series)
+        with torch.no_grad():
+            ts_embeds = self.model.ts_encoder(tensor_window)
+            pred_rul = float(self.model.rul_head(ts_embeds.mean(dim=1)).squeeze().item())
+        return max(0.0, pred_rul)
+
+    def diagnose_components(
+        self,
+        raw_series: dict[str, list[float]],
+        predicted_rul: float | None = None,
+    ) -> ComponentFaultDiagnosis:
+        """Isolate degraded turbofan components and prescribe replacement bill of materials."""
+        if predicted_rul is None:
+            predicted_rul = self.predict_rul(raw_series)
+        return isolate_component_fault(raw_series, predicted_rul)
+
     def assess_record(
         self,
         record: dict[str, Any],
@@ -128,6 +147,9 @@ class AeroGuardPredictor:
             )
 
         pred_rul = max(0.0, float(pred_rul))
+
+        # Run component fault isolation and replacement BOM generation
+        component_diag = isolate_component_fault(raw_series, pred_rul)
 
         # Determine health status band
         if pred_rul <= 30.0:
@@ -164,4 +186,5 @@ class AeroGuardPredictor:
             action_directive=directive,
             cot_diagnostics=generated_text.strip(),
             observed_drift=drifts,
+            component_diagnosis=component_diag,
         )
