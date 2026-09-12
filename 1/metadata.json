@@ -1,0 +1,75 @@
+{
+  "cli_version": "0.10.6",
+  "checkpoint_id": "01M2BD5GEGKBK9VPVR8V2G5FG7",
+  "session_id": "b21d1ffb-a146-4457-8534-45cb4f6fc1db",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-12T18:13:10.318074Z",
+  "branch": "dev_ashwani",
+  "checkpoints_count": 1,
+  "save_step_count": 1,
+  "files_touched": [
+    "README.md",
+    "packages/aeroguard-connectors/src/aeroguard_connectors/builder.py",
+    "pyproject.toml"
+  ],
+  "agent": "Cursor",
+  "model": "claude-opus-5-thinking-low",
+  "turn_id": "1557dde695f7",
+  "compact_transcript_start": 0,
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-12T18:13:10.310726Z",
+    "agent_lines": 100,
+    "agent_removed": 0,
+    "human_added": 1643,
+    "human_modified": 90,
+    "human_removed": 0,
+    "total_committed": 1744,
+    "total_lines_changed": 1833,
+    "agent_percentage": 5.455537370430987,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 7729,
+      "user_lines_removed": 1,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".gitignore": 26,
+        "AEROGUARD_MASTER_SPEC.md": 710,
+        "AGENT.md": 130,
+        "Makefile": 28,
+        "README.md": 126,
+        "data/README.md": 116,
+        "demo/app.py": 499,
+        "demo/assets/turbofan_schematic.svg": 107,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/__init__.py": 1,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/__init__.py": 5,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/connector.py": 150,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/dataset.yaml": 16,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/tests/test_connector.py": 94,
+        "pyproject.toml": 58,
+        "requirements.txt": 2,
+        "scripts/__init__.py": 1,
+        "scripts/build_timef_registry.py": 30,
+        "scripts/download_data.py": 149,
+        "scripts/preprocess_data.py": 247,
+        "scripts/tests/test_data_pipeline.py": 227,
+        "step.md": 243,
+        "training/__init__.py": 1,
+        "training/dataset_loader.py": 385,
+        "training/evaluate_baselines.py": 184,
+        "training/tests/test_dataset_loader.py": 224,
+        "training/train_opentslm.py": 306,
+        "uv.lock": 3664
+      },
+      "user_removed_per_file": {
+        "README.md": 1
+      }
+    }
+  ]
+}

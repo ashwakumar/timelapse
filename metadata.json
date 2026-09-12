@@ -3,13 +3,15 @@
   "checkpoint_id": "01M2BD5GEGKBK9VPVR8V2G5FG7",
   "strategy": "manual-commit",
   "branch": "dev_ashwani",
-  "checkpoints_count": 7,
+  "checkpoints_count": 8,
   "files_touched": [
     "Makefile",
     "README.md",
     "data/README.md",
+    "packages/aeroguard-connectors/src/aeroguard_connectors/builder.py",
     "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/connector.py",
     "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/tests/test_connector.py",
+    "pyproject.toml",
     "scripts/download_data.py",
     "scripts/preprocess_data.py",
     "scripts/tests/test_data_pipeline.py",
@@ -25,6 +27,13 @@
       "compact_transcript": "/0/transcript.jsonl",
       "content_hash": "/0/content_hash.txt",
       "prompt": "/0/prompt.txt"
+    },
+    {
+      "metadata": "/1/metadata.json",
+      "transcript": "/1/full.jsonl",
+      "compact_transcript": "/1/transcript.jsonl",
+      "content_hash": "/1/content_hash.txt",
+      "prompt": "/1/prompt.txt"
     }
   ],
   "token_usage": {
