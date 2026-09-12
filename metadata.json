@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.10.6",
+  "checkpoint_id": "01M2BD5GEGKBK9VPVR8V2G5FG7",
+  "strategy": "manual-commit",
+  "branch": "dev_ashwani",
+  "checkpoints_count": 7,
+  "files_touched": [
+    "Makefile",
+    "README.md",
+    "data/README.md",
+    "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/connector.py",
+    "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/tests/test_connector.py",
+    "scripts/download_data.py",
+    "scripts/preprocess_data.py",
+    "scripts/tests/test_data_pipeline.py",
+    "step.md",
+    "training/dataset_loader.py",
+    "training/tests/test_dataset_loader.py",
+    "training/train_opentslm.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0/metadata.json",
+      "transcript": "/0/full.jsonl",
+      "compact_transcript": "/0/transcript.jsonl",
+      "content_hash": "/0/content_hash.txt",
+      "prompt": "/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 278697,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 8226560,
+    "output_tokens": 48663,
+    "api_call_count": 79
+  }
+}

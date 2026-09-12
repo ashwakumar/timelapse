@@ -1,0 +1,25 @@
+analyse my repo and tell me what this is and write a new readme file then we will do work step by step
+
+---
+
+are we trainig or finetunning the model?
+
+---
+
+there is a task for "Define the questions, labels or other targets your model should learn" are we doing this ?
+
+---
+
+now, lets refine the repo one by one start fom the data
+
+---
+
+remove the unnecesary data, keep minimal data tree, keep data folder,and split the script into two, one for data downlaod and another for data preprocess (which is agentic) and another is tellme?
+
+---
+
+what next should i do, createa file for step.md file to give me all steps for the project
+
+---
+
+then do the next step

@@ -1,0 +1,220 @@
+{
+  "cli_version": "0.10.6",
+  "checkpoint_id": "01M2BD5GEGKBK9VPVR8V2G5FG7",
+  "session_id": "01a0960f-c23f-7683-8769-52aa7470a500",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-12T18:13:10.238171Z",
+  "branch": "dev_ashwani",
+  "checkpoints_count": 7,
+  "save_step_count": 7,
+  "files_touched": [
+    "Makefile",
+    "README.md",
+    "data/README.md",
+    "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/connector.py",
+    "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/tests/test_connector.py",
+    "scripts/download_data.py",
+    "scripts/preprocess_data.py",
+    "scripts/tests/test_data_pipeline.py",
+    "step.md",
+    "training/dataset_loader.py",
+    "training/tests/test_dataset_loader.py",
+    "training/train_opentslm.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.6-sol",
+  "turn_id": "5976a82854dd",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 278697,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 8226560,
+    "output_tokens": 48663,
+    "api_call_count": 79
+  },
+  "session_metrics": {
+    "turn_count": 7
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-12T18:13:10.174337Z",
+    "agent_lines": 542,
+    "agent_removed": 0,
+    "human_added": 2479,
+    "human_modified": 420,
+    "human_removed": 0,
+    "total_committed": 3338,
+    "total_lines_changed": 3441,
+    "agent_percentage": 15.751235106073816,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 276019,
+      "user_lines_removed": 1,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "AEROGUARD_MASTER_SPEC.md": 710,
+        "AGENT.md": 130,
+        "README.md": 151,
+        "data/benchmark_results.json": 23,
+        "data/processed/cmapss_cot_windows.jsonl": 3563,
+        "data/raw/train_FD001.txt": 20631,
+        "data/registry/nasa/cmapss/1.0.0/manifest.json": 352,
+        "demo/app.py": 445,
+        "demo/assets/turbofan_schematic.svg": 107,
+        "models/aeroguard_tslm/lora_adapters/README.md": 207,
+        "models/aeroguard_tslm/lora_adapters/adapter_config.json": 47,
+        "models/aeroguard_tslm/tokenizer/chat_template.jinja": 4,
+        "models/aeroguard_tslm/tokenizer/tokenizer.json": 244965,
+        "models/aeroguard_tslm/tokenizer/tokenizer_config.json": 19,
+        "packages/timenet-connectors/src/timenet_connectors/datasets/nasa/cmapss/__init__.py": 5,
+        "packages/timenet-connectors/src/timenet_connectors/datasets/nasa/cmapss/connector.py": 147,
+        "packages/timenet-connectors/src/timenet_connectors/datasets/nasa/cmapss/dataset.yaml": 16,
+        "packages/timenet-connectors/src/timenet_connectors/datasets/nasa/cmapss/tests/test_connector.py": 88,
+        "pyproject.toml": 33,
+        "requirements.txt": 19,
+        "scripts/agentic_sourcing_pipeline.py": 187,
+        "scripts/build_timef_registry.py": 36,
+        "training/dataset_loader.py": 108,
+        "training/evaluate_baselines.py": 154,
+        "training/train_opentslm.py": 270,
+        "uv.lock": 3602
+      },
+      "user_removed_per_file": {
+        "README.md": 1
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 276055,
+      "agent_lines_removed": 1
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 276055,
+      "agent_lines_removed": 1
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 276055,
+      "agent_lines_removed": 1
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 268,
+      "user_lines_removed": 136,
+      "agent_lines_added": 280138,
+      "agent_lines_removed": 1,
+      "user_added_per_file": {
+        "scripts/agentic_sourcing_pipeline.py": 268
+      },
+      "user_removed_per_file": {
+        "scripts/agentic_sourcing_pipeline.py": 136
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 137,
+      "user_lines_removed": 100,
+      "agent_lines_added": 276283,
+      "agent_lines_removed": 1,
+      "user_added_per_file": {
+        "data/README.md": 46,
+        "demo/app.py": 32,
+        "packages/timenet-connectors/src/timenet_connectors/datasets/nasa/cmapss/connector.py": 3,
+        "scripts/build_timef_registry.py": 1,
+        "scripts/tests/test_data_pipeline.py": 50,
+        "training/dataset_loader.py": 2,
+        "training/evaluate_baselines.py": 2,
+        "training/train_opentslm.py": 1
+      },
+      "user_removed_per_file": {
+        "data/README.md": 38,
+        "demo/app.py": 38,
+        "packages/timenet-connectors/src/timenet_connectors/datasets/nasa/cmapss/connector.py": 4,
+        "scripts/build_timef_registry.py": 1,
+        "scripts/tests/test_data_pipeline.py": 13,
+        "training/dataset_loader.py": 3,
+        "training/evaluate_baselines.py": 2,
+        "training/train_opentslm.py": 1
+      }
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 137,
+      "user_lines_removed": 100,
+      "agent_lines_added": 276526,
+      "agent_lines_removed": 1,
+      "user_added_per_file": {
+        "data/README.md": 46,
+        "demo/app.py": 32,
+        "packages/timenet-connectors/src/timenet_connectors/datasets/nasa/cmapss/connector.py": 3,
+        "scripts/build_timef_registry.py": 1,
+        "scripts/tests/test_data_pipeline.py": 50,
+        "training/dataset_loader.py": 2,
+        "training/evaluate_baselines.py": 2,
+        "training/train_opentslm.py": 1
+      },
+      "user_removed_per_file": {
+        "data/README.md": 38,
+        "demo/app.py": 38,
+        "packages/timenet-connectors/src/timenet_connectors/datasets/nasa/cmapss/connector.py": 4,
+        "scripts/build_timef_registry.py": 1,
+        "scripts/tests/test_data_pipeline.py": 13,
+        "training/dataset_loader.py": 3,
+        "training/evaluate_baselines.py": 2,
+        "training/train_opentslm.py": 1
+      }
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 905,
+      "user_lines_removed": 238,
+      "agent_lines_added": 6765,
+      "agent_lines_removed": 1,
+      "user_added_per_file": {
+        ".gitignore": 26,
+        "Makefile": 27,
+        "data/README.md": 78,
+        "demo/app.py": 32,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/__init__.py": 1,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/__init__.py": 5,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/connector.py": 146,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/dataset.yaml": 16,
+        "packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/tests/test_connector.py": 88,
+        "pyproject.toml": 27,
+        "requirements.txt": 2,
+        "scripts/__init__.py": 1,
+        "scripts/build_timef_registry.py": 19,
+        "scripts/tests/test_data_pipeline.py": 50,
+        "step.md": 17,
+        "training/__init__.py": 1,
+        "training/dataset_loader.py": 286,
+        "training/evaluate_baselines.py": 2,
+        "training/train_opentslm.py": 17,
+        "uv.lock": 64
+      },
+      "user_removed_per_file": {
+        "data/README.md": 36,
+        "demo/app.py": 38,
+        "pyproject.toml": 2,
+        "requirements.txt": 19,
+        "scripts/build_timef_registry.py": 26,
+        "scripts/tests/test_data_pipeline.py": 13,
+        "step.md": 15,
+        "training/dataset_loader.py": 82,
+        "training/evaluate_baselines.py": 2,
+        "training/train_opentslm.py": 3,
+        "uv.lock": 2
+      }
+    }
+  ]
+}
