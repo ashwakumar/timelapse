@@ -1,0 +1,7 @@
+.venv/
+data/cache/
+data/lstm/
+artifacts/feature_screen/window_features.csv.gz
+__pycache__/
+*.pyc
+.DS_Store

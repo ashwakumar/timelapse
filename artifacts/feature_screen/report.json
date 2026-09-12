@@ -1,0 +1,43 @@
+{
+  "definition": "onset of MAP <65 mmHg for >=60 contiguous observed seconds within 15 minutes",
+  "sampled_cases": 40,
+  "usable_cases": 39,
+  "usable_subjects": 39,
+  "windows": 6556,
+  "positive_windows": 1178,
+  "onset_bucket_counts": {
+    "none_within_15": 5378,
+    "within_3": 436,
+    "within_10": 347,
+    "within_15": 223,
+    "within_5": 172
+  },
+  "train_subjects": 29,
+  "validation_subjects": 10,
+  "validation_auprc": 0.2809296234614661,
+  "validation_auroc": 0.7434098051539912,
+  "top20_parameters": [
+    "MAP",
+    "RemiEffectSite",
+    "ASA",
+    "RR_CO2",
+    "RemiRate",
+    "BIS_SQI",
+    "InCO2",
+    "EtCO2",
+    "BIS_EMG",
+    "BIS",
+    "BIS_SR",
+    "ST_II",
+    "Temperature",
+    "FeO2",
+    "FiO2",
+    "Age",
+    "BIS_SEF",
+    "SpO2",
+    "Weight",
+    "HR"
+  ],
+  "failed_cases": [],
+  "warning": "Exploratory patient-held-out screen; validation was used for ranking and is not a final test set."
+}
