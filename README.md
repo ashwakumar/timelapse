@@ -1,97 +1,196 @@
 # AeroGuard TSLM
 
-AeroGuard is a Python prototype for turbofan predictive maintenance. It aims to estimate **Remaining Useful Life (RUL)** from engine sensor windows and generate an assessment in natural language.
+> **Multimodal Time-Series Language Model for Turbofan Predictive Maintenance & Aerothermal Prognostics**
 
-The repository contains C-MAPSS data preparation, a TimeNet connector, PyTorch/LoRA model training, baseline evaluation, and a Streamlit dashboard. It was developed for the European Hackathon League's Give AI a Sense of Time project.
+AeroGuard TSLM bridges continuous multivariate sensor waveforms and causal language models (`SmolLM-135M-Instruct`). Using **Prefix Token Fusion**, it embeds 30-cycle turbofan telemetry directly into the LLM token embedding space to simultaneously forecast numerical **Remaining Useful Life (RUL)** and generate actionable **Chain-of-Thought (CoT) engineering diagnostics**.
 
-**Status:** data preparation is validated. Model evaluation and dashboard inference remain unfinished; the code does not yet establish predictive accuracy or validate maintenance diagnoses.
+Developed for the European Hackathon League (*Give AI a Sense of Time*) using the NASA C-MAPSS FD001 dataset and the TimeNet dataset connector framework.
 
-Follow [step.md](step.md) for the full project roadmap, completion criteria, and the next task: reproducible development setup.
+---
 
-## Workflow (Step-by-Step)
+## ⚡ Quickstart: End-to-End Pipeline
 
-1. **Step 1: Agentic Sourcing & Data Preparation**
-   - Autonomous Sourcing Agent: `scripts/agentic_data_sourcing.py` defines the target user persona, evaluates candidate open-source datasets (C-MAPSS vs N-CMAPSS vs PHM08), and publishes the verified integrity dossier `artifacts/dataset_sourcing_dossier.json`.
-   - Download & validation: `scripts/download_data.py` validates or downloads raw NASA C-MAPSS FD001 telemetry.
-   - Preprocessing & windowing: `scripts/preprocess_data.py` parses records, creates 30-cycle observation windows, enforces strict engine splits (Train: 1-70, Val: 71-80, Test: 81-100), and formulates targets.
-   - Agentic CoT Diagnostic Synthesis: `scripts/agentic_cot_synthesizer.py` enriches records with multi-sensor thermodynamic reasoning, severity staging (NORMAL, WARNING, CRITICAL), and actionable shop-level maintenance directives.
-   - Validation tests: `scripts/tests/test_data_pipeline.py` and `scripts/tests/test_agentic_pipeline.py`.
-2. **Step 2: Bring Data into TimeNet**
-   - Connector implementation: `packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/connector.py` maps sensor signals into `TimeSeries` with Pint units, `OrdinalAxis`, and tasks (`AnswerTask`, `ScalarPredictionTask`).
-   - TimeF registry generation: `scripts/build_timef_registry.py` runs the pipeline and verifies the dataset using TimeNet SDK.
-   - Connector verification tests: `packages/aeroguard-connectors/src/aeroguard_connectors/cmapss/tests/test_connector.py`.
-3. **Subsequent Steps (Archived)**
-   - Model training, baseline evaluation, and demo dashboard are preserved in `archive/` for activation in later stages. See [archive/README.md](archive/README.md).
-
-## Minimal Data Layout
-
-```text
-data/
-├── README.md
-├── raw/
-│   └── train_FD001.txt
-└── processed/
-    ├── windows.jsonl
-    └── dataset_manifest.json
-```
-
-See [data/README.md](data/README.md) for target definitions, provenance, and data schemas.
-
-| Split | Engine IDs | Windows |
-| --- | --- | ---: |
-| Train | 1–70 | 2,502 |
-| Validation | 71–80 | 355 |
-| Test | 81–100 | 806 |
-
-## Active Commands
-
-Run commands from the repository root using `uv`:
+Run all prerequisite data sourcing, preprocessing, CoT synthesis, normalization, and training in a **single command**:
 
 ```bash
-# 1. Run Agentic Data Sourcing to evaluate datasets and generate dossier
-uv run python -m scripts.agentic_data_sourcing
+# Option A: Run via Python CLI (Configurable)
+uv run python -m scripts.run_pipeline \
+    --epochs 3 \
+    --batch-size 16 \
+    --lr 2e-4 \
+    --save-dir models/aeroguard_tslm
 
-# 2. Preprocess data and generate 30-cycle windows
-uv run python -m scripts.preprocess_data
+# Option B: Run via Shell Wrapper
+./run_pipeline.sh
 
-# 3. Synthesize aerospace engineering Chain-of-Thought (CoT) diagnostic targets
-uv run python -m scripts.agentic_cot_synthesizer
-
-# 4. Run automated test suite (36 tests)
-uv run python -m pytest -q
-
-# 5. Build and verify the TimeNet / TimeF dataset registry
-uv run python -m scripts.build_timef_registry --out artifacts/registry
-
-# 6. Complete code hygiene and quality checks
-make check
+# Option C: Run via Make
+make pipeline
 ```
 
-## Repository Map
+### Useful Pipeline Flags
 
-- `data/`: Raw and canonical processed dataset with schema documentation.
-- `scripts/agentic_data_sourcing.py`: Autonomous candidate evaluation and sourcing dossier generator.
-- `scripts/agentic_cot_synthesizer.py`: 4-stage aerothermal diagnostic CoT reasoning and maintenance directive synthesizer.
-- `scripts/download_data.py`: Raw data download, validation, and SHA256 caching.
-- `scripts/preprocess_data.py`: Offline windowing, non-leaking splits, and manifest creation.
-- `scripts/build_timef_registry.py`: TimeNet / TimeF registry builder and verification script.
-- `scripts/tests/`: Automated unit tests for data pipeline, connector, and agentic CoT synthesis.
-- `packages/aeroguard-connectors/`: TimeNet dataset connector for NASA C-MAPSS with 7 annotations.
-- `archive/`: Preserved training (`archive/training/`), checkpoints (`archive/models/`), and dashboard (`archive/demo/`).
-- `Makefile`: Tooling commands for lock-check, formatting, linting, and tests.
+| Flag | Description | Example |
+| :--- | :--- | :--- |
+| `--epochs` | Number of training epochs (default: `3`) | `--epochs 5` |
+| `--batch-size` | Batch size per GPU step (default: `16`) | `--batch-size 16` |
+| `--lr` | AdamW learning rate (default: `2e-4`) | `--lr 1e-4` |
+| `--save-dir` | Checkpoint and adapter destination | `--save-dir models/aeroguard_tslm` |
+| `--max-steps` | Optional step cap for rapid verification | `--max-steps 10` |
+| `--skip-preprocess` | Retrain model using existing preprocessed data | `--skip-preprocess` |
+| `--build-registry` | Also build and verify the TimeNet / TimeF registry | `--build-registry` |
 
+> 💡 **Quick Smoke Test**: Test the full pipeline end-to-end in under 30 seconds:
+> ```bash
+> make smoke-pipeline
+> ```
 
-# 1. Install uv (if not already installed on the server)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env
+---
 
-# 2. Install all dependencies natively in seconds
-uv sync --locked
+## 🔄 Pipeline Workflow (Step-by-Step)
 
-# 3. Launch Full Cloud GPU Training!
-# (The code automatically detects NVIDIA CUDA!)
+If you prefer executing individual pipeline stages manually:
+
+```bash
+# 1. Agentic Data Sourcing & Raw Telemetry Validation
+# Validates train_FD001.txt and publishes artifacts/dataset_sourcing_dossier.json
+uv run python -m scripts.agentic_data_sourcing
+
+# 2. Window Slicing & Engine Partitioning
+# Generates 30-cycle windows with stride 5 into data/processed/windows.jsonl
+uv run python -m scripts.preprocess_data
+
+# 3. Agentic Chain-of-Thought (CoT) Diagnostic Synthesis
+# Enriches records with thermodynamic reasoning and maintenance directives
+uv run python -m scripts.agentic_cot_synthesizer
+
+# 4. Normalization Pre-computation & Split Verification
+# Fits training population statistics and writes models/aeroguard_tslm/preprocessing.json
+uv run python -m training.dataset_loader --save-normalization models/aeroguard_tslm/preprocessing.json
+
+# 5. OpenTSLM Fine-Tuning & Adapter Export
 uv run python -m training.train_opentslm \
     --epochs 3 \
     --batch-size 16 \
     --lr 2e-4 \
     --save-dir models/aeroguard_tslm
+```
+
+---
+
+## 🏗️ System Architecture
+
+```text
+                    ┌────────────────────────────┐
+14 Sensor Channels  │ TimeSeriesPatchEncoder     │
+ (Window Length 30) │ Unfold (patch=10) + Linear │
+───────────────────►│ + LayerNorm                │───► [Batch, 3 Patches, 2048] (Patch Tokens)
+                    └────────────────────────────┘              │
+                                                                ▼ Concatenate
+Prompt / Context    ┌────────────────────────────┐          ┌──────────────┐
+Text Query          │ Tokenizer + Embedding      │─────────►│ Prefix Token │──► LoRA SmolLM-135M
+───────────────────►│ Layer                      │          │ Fusion       │    (r=16, alpha=32)
+                    └────────────────────────────┘          └──────────────┘
+                                                                │        │
+                                                ┌───────────────┘        └───────────────┐
+                                                ▼                                        ▼
+                                   Auxiliary RUL Head (MLP)                 Autoregressive Causal LM
+                                   Mean-pool -> 128 -> GELU -> 1            Predicts diagnostic CoT:
+                                   Output: Scalar RUL (Cycles)              Observations, Reasoning,
+                                                                            Health & MRO Actions
+```
+
+### Key Modules:
+- **`TimeSeriesPatchEncoder`**: Converts 14 continuous channels $[B, 14, 30]$ into patch tokens $[B, 3, 2048]$ matching the LLM hidden size.
+- **Prefix Token Fusion**: Continuous patch tokens are prepended to prompt embeddings, with prompt tokens masked (`-100`) so loss is computed strictly on reasoning outputs.
+- **Multi-Task Objective**:
+  $$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{LM}} + 0.01 \cdot \mathcal{L}_{\text{RUL}}$$
+  Simultaneously optimizes causal language modeling cross-entropy and scalar RUL regression MSE.
+
+---
+
+## 📊 Dataset & Zero-Leakage Splits
+
+NASA C-MAPSS **FD001** (High-Pressure Compressor degradation under sea-level steady cruise):
+
+| Split | Physical Engine IDs | 30-Cycle Windows | Zero-Leakage Policy |
+| :--- | :---: | :---: | :--- |
+| **Train** | Engines `1–70` | 2,502 | Fits all normalization statistics and LoRA weights |
+| **Validation** | Engines `71–80` | 355 | Fixed checkpoint selection and hyperparameter tuning |
+| **Test** | Engines `81–100` | 806 | Strictly unseen engines; ground-truth RUL withheld |
+
+### 14 Selected Aerothermal Channels:
+- **Temperatures**: LPC outlet ($T_{24}$), HPC outlet ($T_{30}$), LPT exhaust gas temp ($T_{50}$)
+- **Pressures**: HPC delivery pressure ($P_{30}$), HPC static pressure ($P_{s30}$)
+- **Rotor Speeds**: Physical fan speed ($N_f$), Core speed ($N_c$), Corrected speeds ($NR_f, NR_c$)
+- **Thermodynamic Ratios & Bleeds**: Fuel-flow ratio ($\phi$), Bypass ratio ($BPR$), Enthalpy, HPT/LPT coolant bleeds ($W_{31}, W_{32}$)
+
+---
+
+## 🚀 Live Demonstration & Evaluation
+
+### Run End-to-End Terminal Demonstration
+Evaluates real telemetry cases from held-out engines (`Unit #84` nominal vs. near-failure wear):
+```bash
+uv run python -m scripts.run_demonstration
+```
+
+### Launch Interactive Streamlit Dashboard
+Visualizes multi-channel sensor waveforms, live CoT streaming, and fleet health staging:
+```bash
+uv run streamlit run demo/app.py
+```
+
+### Baseline Benchmarking
+Compares AeroGuard TSLM against XGBoost, Amazon Chronos-T5, and linear degradations:
+```bash
+# Evaluate baseline models (XGBoost, Mean Predictor)
+uv run python -m training.evaluate_baselines
+
+# Benchmark Chronos-T5 zero-shot time-series forecasting
+uv run python -m scripts.evaluate_chronos_baseline
+```
+
+---
+
+## 🛠️ Code Hygiene & Testing
+
+Run the automated test suite and formatting checks:
+
+```bash
+# Run complete test suite (unit tests for pipeline, connector, and CoT)
+uv run python -m pytest -q
+
+# Full code hygiene check (lockfile, formatting, linting, typing, tests)
+make check
+```
+
+---
+
+## 📁 Repository Layout
+
+```text
+├── run_pipeline.sh                     # One-click executable bash pipeline wrapper
+├── Makefile                            # Tooling: make pipeline, check, test, format
+├── pyproject.toml                      # Workspace configuration and dependencies (uv)
+├── data/
+│   ├── raw/train_FD001.txt             # Validated raw NASA telemetry
+│   └── processed/windows.jsonl         # 30-cycle observation windows with CoT rationales
+├── scripts/
+│   ├── run_pipeline.py                 # End-to-end Python pipeline orchestrator
+│   ├── agentic_data_sourcing.py        # Problem definition & candidate dataset sourcing
+│   ├── preprocess_data.py              # Offline windowing & zero-leakage splits
+│   ├── agentic_cot_synthesizer.py      # 4-stage aerothermal diagnostic CoT synthesis
+│   ├── build_timef_registry.py         # TimeNet / TimeF dataset exporter
+│   └── run_demonstration.py            # Operational fleet demonstration script
+├── training/
+│   ├── train_opentslm.py               # OpenTSLM multi-task training script
+│   ├── dataset_loader.py               # Lazy JSONL reader & normalization manager
+│   ├── inference.py                    # Inference engine with RUL + CoT generation
+│   └── evaluate_baselines.py           # Baseline benchmarks (XGBoost vs TSLM)
+├── packages/
+│   └── aeroguard-connectors/           # Reusable TimeNet dataset connector for C-MAPSS
+├── demo/
+│   └── app.py                          # Interactive Streamlit operations dashboard
+└── models/
+    └── aeroguard_tslm/                 # Exported LoRA weights, patch encoder & tokenizer
+```
