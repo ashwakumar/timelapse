@@ -1,3 +1,7 @@
+[server]
+# Avoid probing Transformers lazy modules, which imports optional vision dependencies.
+fileWatcherType = "none"
+
 [theme]
 base = "dark"
 primaryColor = "#5AB8AC"
