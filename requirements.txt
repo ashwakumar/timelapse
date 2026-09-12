@@ -4,3 +4,4 @@ pandas==3.0.5
 scikit-learn==1.9.1
 seaborn==0.13.2
 tqdm==4.70.1
+timenet[build]==0.1.0
