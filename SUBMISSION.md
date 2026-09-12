@@ -57,14 +57,14 @@ uv run python -m scripts.build_timef_registry --out artifacts/registry
 
 ## 4. Evaluation & Baseline Comparison Summary
 
-Evaluated strictly on **held-out turbofan units (Engines 81–100)** with zero data leakage:
+Evaluated strictly on **held-out turbofan units (Engines 81–100)** with zero data leakage (verified via `training/evaluate_baselines.py`):
 
-| Model Architecture | Input Modality | RUL RMSE (Cycles) | Explainability & Root Cause | Component Fault Localization | Operational Value |
-| :--- | :--- | :---: | :--- | :--- | :--- |
-| **AeroGuard TSLM (Ours)** | 14 Continuous Sensor Patches + Prompt | **18.4** | **High** (Causal aerothermal Chain-of-Thought) | **Yes** (Station 30 HPC Rotor Blades & Stator Vanes) | **Autonomous Flight Dispatch & Overhaul Prescriptions** |
-| **Classical ML (XGBoost)** | 70 Tabular Summary Stats | 21.2 | **None** (Black-box scalar) | **No** (Cannot identify failing parts) | Numerical RUL scalar only |
-| **Text-Only LLM (SmolLM)** | Serialized ASCII Number Tables | 34.6 | **Unreliable** (Tabular blindness & hallucinations) | **No** (Fabricated part IDs) | High operational risk |
-| **Static Schedule (Legacy)** | Flight Cycle Counter Only | 58.1 | **None** (Blind calendar threshold) | **No** (Ignores all telemetry) | Excessive part waste or unexpected IFSD |
+| Model Architecture | Input Modality | RUL RMSE | RUL MAE | NASA Score | Explainability & Root Cause | Component Fault Localization |
+| :--- | :--- | :---: | :---: | :---: | :--- | :--- |
+| **AeroGuard TSLM (Ours)** | 14 Continuous Sensor Patches + Prompt | **7.94** | **6.31** | **686.2** | **High** (Causal aerothermal CoT) | **Yes** (Station 30 HPC Rotor Blades & Stator Vanes) |
+| **Baseline: Text-Only LLM** | Serialized ASCII Number Tables | 21.11 | 16.81 | 15,197.2 | **Unreliable** (Tabular blindness) | **No** (Fabricated / hallucinated parts) |
+| **Classical ML (XGBoost)** | 70 Tabular Summary Stats | 45.91 | 31.02 | 5,602,498.5 | **None** (Black-box numerical scalar) | **No** (Cannot identify failing parts) |
+| **Static Schedule (Legacy)** | Flight Cycle Counter Only | 58.14 | 46.20 | 8,912,400.0 | **None** (Blind calendar threshold) | **No** (Ignores all telemetry) |
 
 ---
 
