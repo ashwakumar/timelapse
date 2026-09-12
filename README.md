@@ -79,3 +79,19 @@ make check
 - `packages/aeroguard-connectors/`: TimeNet dataset connector for NASA C-MAPSS with 7 annotations.
 - `archive/`: Preserved training (`archive/training/`), checkpoints (`archive/models/`), and dashboard (`archive/demo/`).
 - `Makefile`: Tooling commands for lock-check, formatting, linting, and tests.
+
+
+# 1. Install uv (if not already installed on the server)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+
+# 2. Install all dependencies natively in seconds
+uv sync --locked
+
+# 3. Launch Full Cloud GPU Training!
+# (The code automatically detects NVIDIA CUDA!)
+uv run python -m training.train_opentslm \
+    --epochs 3 \
+    --batch-size 16 \
+    --lr 2e-4 \
+    --save-dir models/aeroguard_tslm
