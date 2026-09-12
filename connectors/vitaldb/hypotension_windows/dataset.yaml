@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://docs.timenet.ai/schemas/dataset-card-v1.schema.json
+yaml_schema_version: 1
+dataset_id: hackzurich/vitaldb-hypotension-windows-template
+dataset_version: 0.1.0
+name: VitalDB Hypotension Onset Windows
+description: >-
+  Patient-disjoint 20-second, top-N VitalDB numeric-signal windows for predicting the
+  first onset of sustained MAP below 65 mmHg in 3, 5, 10, or 15 minutes. Generated
+  research labels are not clinically adjudicated. Missing observations are stored both
+  as nullable signal values and explicit boolean observation-mask channels.
+license: other
+source_url: https://vitaldb.net/dataset/
+license_url: https://creativecommons.org/licenses/by-nc-sa/4.0/
+citation: >-
+  Lee HC, Park Y, Yoon SB, Yang SM, Park D, Jung CW. VitalDB, a high-fidelity
+  multi-parameter vital signs database in surgical patients. Sci Data. 2022;9:279.
+domains:
+  - health
+tags:
+  - vitaldb
+  - anesthesia
+  - hypotension
+  - classification
+  - question-answering

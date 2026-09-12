@@ -1,0 +1,10 @@
+.venv/
+data/cache/
+data/lstm/
+data/timenet_registry/
+artifacts/feature_screen/window_features.csv.gz
+__pycache__/
+*.pyc
+.DS_Store
+artifacts/opentslm_surgical_telemetry/
+data/surgical_telemetry/

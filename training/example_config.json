@@ -1,0 +1,33 @@
+{
+  "model": {
+    "model_id": "OpenTSLM/llama-3.2-1b-tsqa-sp",
+    "model_revision": "1904441f0d87c458d6e9376de04ada5f4c9ab5b7",
+    "base_model_revision": "main",
+    "lora_rank": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "max_context_tokens": 4096,
+    "truncate_prompt_to_fit": false
+  },
+  "training": {
+    "manifest_path": "data/surgical_telemetry/manifest.jsonl",
+    "output_dir": "artifacts/opentslm_surgical_telemetry",
+    "seed": 42,
+    "validation_fraction": 0.2,
+    "require_device_id": true,
+    "allow_case_only": false,
+    "max_signal_length": 300,
+    "max_text_length": 1024,
+    "patch_size": 4,
+    "train_batch_size": 1,
+    "eval_batch_size": 1,
+    "epochs": 3,
+    "gradient_accumulation_steps": 8,
+    "encoder_learning_rate": 0.0002,
+    "projector_learning_rate": 0.0001,
+    "lora_learning_rate": 0.0001,
+    "warmup_ratio": 0.03,
+    "precision": "auto",
+    "device": "auto"
+  }
+}
