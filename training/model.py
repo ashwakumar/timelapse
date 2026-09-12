@@ -431,7 +431,7 @@ def load_pretrained_model(
             "This training path requires an OpenTSLM sequence-projection (-sp) checkpoint"
         )
     model_sha = _resolved_hub_revision(config.model_id, config.model_revision)
-    base_id = _base_model_id(config.model_id)
+    base_id = config.base_model_id or _base_model_id(config.model_id)
     base_sha = _resolved_hub_revision(base_id, config.base_model_revision)
     checkpoint_path = hf_hub_download(
         repo_id=config.model_id,
@@ -447,6 +447,17 @@ def load_pretrained_model(
     )
     backbone = OpenTSLMSP(llm_id=base_path, device=device)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+    projector_weight = checkpoint["projector_state"].get("projector.1.weight")
+    if (
+        projector_weight is not None
+        and projector_weight.shape[0] != backbone.llm.config.hidden_size
+    ):
+        raise RuntimeError(
+            f"{config.model_id} projects time series into {projector_weight.shape[0]} "
+            f"dimensions, but base model {base_id} has hidden size "
+            f"{backbone.llm.config.hidden_size}; supply a base_model_id whose "
+            "architecture matches the checkpoint"
+        )
     backbone.encoder.load_state_dict(checkpoint["encoder_state"], strict=True)
     backbone.projector.load_state_dict(checkpoint["projector_state"], strict=True)
     if dtype is None:

@@ -17,9 +17,14 @@ python -m pip install -r requirements-training.txt
 hf auth login
 ```
 
-The default checkpoint requires access to `meta-llama/Llama-3.2-1B` on Hugging
-Face. OpenTSLM contains an encoder/projector checkpoint, not a standalone
-`AutoModelForCausalLM` model. The training loader uses that architecture and
+Downloads need a Hugging Face token, either from `hf auth login` or from
+`HF_TOKEN` in the environment; copy `.env.example` to `.env` and load it with
+`set -a; source .env; set +a` to use the latter.
+
+The dataclass defaults resolve the base model to the gated
+`meta-llama/Llama-3.2-1B`; the supplied configuration names an ungated mirror of
+the same weights instead, as described under Run. OpenTSLM contains an
+encoder/projector checkpoint, not a standalone `AutoModelForCausalLM` model. The training loader uses that architecture and
 checkpoint together with the matching base language model. The OpenTSLM source
 is pinned to commit `2968f4b891baab4307f7e9d0043e87677b593a30`.
 
@@ -137,13 +142,36 @@ python -m training.validate_data /tmp/telemetry-example/manifest.jsonl \
   --output-dir /tmp/telemetry-audit --max-signal-length 300
 ```
 
-Train on your authored manifest using the supplied small-compute configuration:
+`training.train` reads `training/example_config.json` when `--config` is not
+given, so a run that uses the supplied small-compute configuration needs no
+arguments at all:
+
+```bash
+python -m training.make_example data/surgical_telemetry
+python -m training.train
+```
+
+That configuration writes to `artifacts/opentslm_surgical_telemetry`. Because a
+new run requires an empty output directory, override the paths to keep several
+runs side by side:
 
 ```bash
 python -m training.train --config training/example_config.json \
   --manifest /path/to/manifest.jsonl \
   --output-dir /path/to/new-training-run
 ```
+
+An explicit `--config` path that does not exist is an error; only the default
+path may be absent, in which case the dataclass defaults apply.
+
+`base_model_id` selects the base language model. When it is null the repository
+is inferred from `model_id`, which resolves to the gated
+`meta-llama/Llama-3.2-1B`. The supplied configuration instead names
+`NousResearch/Llama-3.2-1B`, an ungated mirror of the same weights, so the run
+works without a Meta access grant; the Llama 3.2 Community License still
+applies. Override it with `--base-model-id`. The value must name the same
+architecture and hidden size the checkpoint's projector was trained against, or
+loading fails with an explicit dimension mismatch.
 
 `example_config.json` uses 300 retained samples, batch size 1, accumulation over
 8 batches, rank-8 LoRA, gradient checkpointing, AdamW, and cosine decay with

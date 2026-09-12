@@ -1,4 +1,5 @@
 .venv/
+.env
 data/cache/
 data/lstm/
 data/timenet_registry/
@@ -7,4 +8,5 @@ __pycache__/
 *.pyc
 .DS_Store
 artifacts/opentslm_surgical_telemetry/
+artifacts/run-*/
 data/surgical_telemetry/

@@ -27,6 +27,8 @@ from training.model import (
     save_checkpoint,
 )
 
+DEFAULT_CONFIG_PATH = Path("training/example_config.json")
+
 
 def seed_everything(seed: int) -> None:
     """Seed Python, NumPy, PyTorch, workers, and deterministic CUDA behavior."""
@@ -397,12 +399,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        help="JSON ExperimentConfig; defaults are used when omitted",
+        default=DEFAULT_CONFIG_PATH,
+        help="JSON ExperimentConfig; built-in defaults are used when the file is absent",
     )
     parser.add_argument("--manifest", help="Override training.manifest_path")
     parser.add_argument("--output-dir", help="Override training.output_dir")
     parser.add_argument("--device", help="Override training.device")
     parser.add_argument("--resume-from", help="Override training.resume_from")
+    parser.add_argument("--base-model-id", help="Override model.base_model_id")
     return parser.parse_args()
 
 
@@ -411,10 +415,12 @@ def main() -> None:
     from training.data import load_manifest, split_records
 
     args = _parse_args()
-    if args.config:
+    if args.config.is_file():
         config = ExperimentConfig.from_dict(
             json.loads(args.config.read_text(encoding="utf-8"))
         )
+    elif args.config != DEFAULT_CONFIG_PATH:
+        raise FileNotFoundError(f"Configuration file not found: {args.config}")
     else:
         config = ExperimentConfig()
     for argument, field in (
@@ -425,6 +431,8 @@ def main() -> None:
     ):
         if argument is not None:
             setattr(config.training, field, argument)
+    if args.base_model_id is not None:
+        config.model.base_model_id = args.base_model_id
     config.validate()
     if config.training.resume_from:
         resume = torch.load(

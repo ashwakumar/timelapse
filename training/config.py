@@ -14,10 +14,14 @@ class ModelConfig:
 
     Mutable Hub revision names are resolved to immutable commit SHAs before any
     weights are loaded; those SHAs are written into every training checkpoint.
+    ``base_model_id`` overrides the base language model that is otherwise
+    inferred from ``model_id``; it must name the same architecture and hidden
+    size the checkpoint's projector was trained against.
     """
 
     model_id: str = "OpenTSLM/llama-3.2-1b-tsqa-sp"
     model_revision: str = "main"
+    base_model_id: str | None = None
     base_model_revision: str = "main"
     cache_dir: str | None = None
     lora_rank: int = 16
@@ -44,6 +48,8 @@ class ModelConfig:
             raise ValueError("lora_dropout must be in [0, 1)")
         if not self.lora_target_modules:
             raise ValueError("lora_target_modules cannot be empty")
+        if self.base_model_id is not None and not self.base_model_id.strip():
+            raise ValueError("base_model_id cannot be blank when it is set")
         if self.max_context_tokens is not None and self.max_context_tokens < 2:
             raise ValueError("max_context_tokens must be at least 2")
 

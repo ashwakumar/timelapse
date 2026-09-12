@@ -3,51 +3,73 @@
 Exploratory VitalDB pipeline for predicting the onset of sustained
 intraoperative hypotension from a 20-second observation window.
 
+The repository holds two independent pipelines:
+
+| Directory | Purpose | Environment |
+| --- | --- | --- |
+| `scripts/`, `connectors/` | Screen VitalDB parameters, prepare windowed tensors, and publish them through the OpenTSLM adapter and the TimeNet connector | `requirements.txt` |
+| `training/` | Fine-tune an OpenTSLM SoftPrompt encoder and LoRA adapter on authored surgical telemetry explanations | `requirements-training.txt` |
+
+The two dependency sets pin conflicting versions of NumPy and scikit-learn, so
+keep them in separate virtual environments. This file documents the first
+pipeline; see [`training/README.md`](training/README.md) for the second.
+
 ## Environment
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+source .venv/bin/activate
+python -m pip install -r requirements.txt
 ```
 
-The package imported by the scripts is `vitaldb` (not `vitaldba`).
+Every command below assumes this environment is active and that you are in the
+repository root, so that `scripts` and `connectors` resolve as packages.
 
 ## Feature screen
 
 ```bash
-.venv/bin/python scripts/feature_screen.py --max-cases 40
+python scripts/feature_screen.py --max-cases 40
 ```
 
 The command downloads and caches selected public VitalDB tracks, creates
 patient-disjoint development and validation splits, derives a deterministic
 target (MAP below 65 mmHg for at least 60 seconds within 15 minutes), and
-writes:
+writes to `artifacts/feature_screen/`:
 
-- `artifacts/feature_screen/parameter_ranking.csv`
-- `artifacts/feature_screen/reliable_parameter_ranking.csv`
-- `artifacts/feature_screen/group_ablation.csv`
-- `artifacts/feature_screen/top20_feature_heatmap.png`
-- `artifacts/feature_screen/report.json`
+- `parameter_ranking.csv` and `reliable_parameter_ranking.csv`
+- `feature_ranking.csv`
+- `group_ablation.csv`
+- `top20_feature_heatmap.png`
+- `report.json`
+- `window_features.csv.gz` (untracked)
 
 The heatmap shows Spearman relationships and redundancy. Parameter selection
-uses grouped permutation loss in validation AUPRC. This is an exploratory
-screen; the validation patients used for selection are not a final test set.
+uses grouped permutation loss in validation AUPRC, and the reliable ranking
+keeps only parameters observed in at least half of the validation windows.
+This is an exploratory screen; the validation patients used for selection are
+not a final test set.
+
+A ranking is already committed under `artifacts/feature_screen/`, so this step
+is optional. Rerun it only to regenerate that ranking with different sampling
+or window parameters.
 
 ## LSTM dataset
 
-The positional argument always selects the best `N` dynamic parameters from
-the saved reliable ranking. It does not accept an arbitrary feature list.
+The positional argument always selects the best `N` dynamic parameters from the
+saved reliable ranking. It does not accept an arbitrary feature list, and the
+selection must include MAP, which defines input quality.
 
 ```bash
-.venv/bin/python scripts/prepare_lstm_dataset.py 5 --max-cases 40
-.venv/bin/python scripts/prepare_lstm_dataset.py 10 --max-cases 40
+python scripts/prepare_lstm_dataset.py 5 --max-cases 40
+python scripts/prepare_lstm_dataset.py 10 --max-cases 40
 ```
 
 Each run writes patient-disjoint `train.npz`, `validation.npz`, and `test.npz`
 files under `data/lstm/top_N/`, plus a `manifest.json` containing the exact
 parameter order, labels, split counts, availability, and train-only scaling.
 Every NPZ contains normalized `x_values`, a separate `x_mask`, multiclass `y`,
-and case, subject, cutoff, and future-coverage metadata.
+and case, subject, cutoff, and future-coverage metadata. Pass `--ranking-file`
+to read a different ranking and `--output-root` to write elsewhere.
 
 The target is generated with code: first onset of MAP below 65 mmHg for at
 least 60 contiguous observed seconds, bucketed into 3, 5, 10, 15, or no event
@@ -74,7 +96,7 @@ future-derived label occurs only in `answer`.
 Validate the prepared corpus locally before copying it to Nebius:
 
 ```bash
-.venv/bin/python scripts/opentslm_vitaldb_dataset.py \
+python scripts/opentslm_vitaldb_dataset.py \
   --data-dir data/lstm/top_10 --split train --show-sample 0
 ```
 
@@ -124,30 +146,56 @@ top-5 and top-10 verified with real data). The dependency
 is pinned to `timenet[build]==0.1.0`; the inspected upstream revision was
 `c39ca32b64ad0c89ea54093dbcb285c1a93eb006`.
 
-Build a local TimeF registry and read it back through the official client:
+Check the schema without writing anything, then build a local TimeF registry and
+read it back through the official client:
 
 ```bash
-.venv/bin/python scripts/ingest_timenet.py \
+python scripts/ingest_timenet.py --data-dir data/lstm/top_10 --convert-only
+python scripts/ingest_timenet.py \
   --data-dir data/lstm/top_10 \
   --out data/timenet_registry
 ```
 
-Use `--convert-only` for schema validation without writing a registry. Each
-configuration has a collision-free ID:
-`hackzurich/vitaldb-hypotension-top-5` or
+Add `--force` to replace an existing registry. Each configuration has a
+collision-free ID: `hackzurich/vitaldb-hypotension-top-5` or
 `hackzurich/vitaldb-hypotension-top-10`. The readback audit checks record and
 task counts, exact agreement between nullable signal values and masks, and
 patient-disjoint splits.
 
 TimeNet 0.1.0 publishes to a local registry; its official documentation says a
-hosted backend is planned. The source files were acquired through the
+hosted backend is planned.
+
+## Tests
+
+The `tests/` directory covers both pipelines, so run each group in its own
+environment. With `.venv` active:
+
+```bash
+python -m unittest tests.test_timenet_ingestion tests.test_opentslm_vitaldb_dataset -v
+```
+
+The `tests/test_training_*.py` files import `torch` and the `training` package
+and therefore belong to the training environment described in
+[`training/README.md`](training/README.md):
+
+```bash
+python -m pytest -q tests/test_training_*.py
+```
+
+## Relationship to `training/`
+
+The fine-tuning pipeline in `training/` is a different task: it reads a JSONL
+manifest of four synchronized channels (ABP, HR, SpO2, EtCO2) with authored
+Observation/Rationale/Recommendation targets and complete physical-device
+provenance. The corpus prepared here carries generated hypotension-onset labels,
+a different set of parameters, and no device identities, so it does not satisfy
+that contract and is not consumed by `training/train.py`. See
+[`training/README.md`](training/README.md) for what an export would require.
+
+## Data license
+
+The source files were acquired through the
 [VitalDB dataset API](https://vitaldb.net/dataset/) and retain its
 [CC BY-NC-SA 4.0 terms](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 The connector records that license as `other` because TimeNet 0.1.0 has no
 combined CC BY-NC-SA enum.
-
-Run both adapter and SDK roundtrip tests with:
-
-```bash
-.venv/bin/python -m unittest discover -s tests -v
-```
