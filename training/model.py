@@ -558,6 +558,7 @@ def save_checkpoint(
     scaler: Any | None = None,
     metrics: Mapping[str, float] | None = None,
     training_config: Mapping[str, Any] | None = None,
+    task_metadata: Mapping[str, Any] | None = None,
 ) -> None:
     """Atomically save adapter, encoder/projector, optimizer, and RNG state."""
     destination = Path(path)
@@ -571,6 +572,7 @@ def save_checkpoint(
         "global_step": global_step,
         "metrics": dict(metrics or {}),
         "training_config": dict(training_config or {}),
+        "task_metadata": dict(task_metadata or {}),
         "torch_rng_state": torch.get_rng_state(),
         "cuda_rng_state": torch.cuda.get_rng_state_all()
         if torch.cuda.is_available()

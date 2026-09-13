@@ -1,0 +1,8 @@
+# Python 3.12: a single GPU environment for real VitalDB preparation and training.
+# TimeNet's separate dependency pins are deliberately not installed here.
+-r requirements-training.txt
+vitaldb==1.7.2
+pandas==3.0.5
+matplotlib==3.11.2
+seaborn==0.13.2
+tqdm==4.70.1

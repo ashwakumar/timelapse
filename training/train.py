@@ -153,6 +153,8 @@ def train(
     validation_loader: DataLoader,
     config: ExperimentConfig,
     device: torch.device,
+    *,
+    checkpoint_metadata: Mapping[str, Any] | None = None,
 ) -> list[dict[str, float]]:
     """Run accumulated mixed-precision training and save restartable checkpoints."""
     training = config.training
@@ -178,6 +180,8 @@ def train(
             scheduler=scheduler,
             scaler=scaler,
         )
+        if checkpoint_metadata is not None and restored.get("task_metadata") != dict(checkpoint_metadata):
+            raise ValueError("Resume checkpoint task/dataset metadata does not match this run")
         start_epoch = int(restored["epoch"]) + 1
         global_step = int(restored["global_step"])
         best_validation_loss = float(
@@ -267,6 +271,7 @@ def train(
             scaler=scaler,
             metrics=metrics,
             training_config=training.to_dict(),
+            task_metadata=checkpoint_metadata,
         )
         if training.save_every_epoch:
             save_checkpoint(
