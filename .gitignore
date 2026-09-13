@@ -13,6 +13,7 @@ __pycache__/
 build/
 dist/
 #artifacts/
+notebooks/*.ipynb
 
 # Downloaded baseline model weights (>100MB / non-repo models)
 models/baselines/text_model/

@@ -49,8 +49,7 @@ def run_demonstration() -> None:
 
     data_path = Path("data/processed/windows.jsonl")
     if not data_path.exists():
-        print("❌ Error: Processed data not found. Run scripts.preprocess_data first.")
-        return
+        raise FileNotFoundError("Processed data not found. Run scripts.preprocess_data first.")
 
     # Load records from held-out test split
     test_records = []
@@ -61,6 +60,8 @@ def run_demonstration() -> None:
                 if item.get("split") == "test":
                     test_records.append(item)
 
+    if not test_records:
+        raise ValueError("No held-out test windows found in processed data")
     print(f"Loaded {len(test_records)} held-out test windows (Engines 81–100).")
 
     # Pick two contrasting cases from Engine Unit #84:
@@ -110,12 +111,8 @@ def run_demonstration() -> None:
         "Initializing AeroGuardPredictor and loading trained SmolLM-135M + LoRA + Patch Encoder..."
     )
 
-    try:
-        predictor = AeroGuardPredictor(model_dir="models/aeroguard_tslm")
-        print(f"✅ Model loaded successfully on device: {predictor.device}\n")
-    except Exception as exc:
-        print(f"⚠️ Could not load trained model ({exc}). Running simulated demonstration.")
-        return
+    predictor = AeroGuardPredictor(model_dir="models/aeroguard_tslm")
+    print(f"✅ Model loaded successfully on device: {predictor.device}\n")
 
     for label, rec in [
         ("CASE A: MID-LIFE OPERATION", mid_record),

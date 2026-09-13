@@ -133,6 +133,7 @@ def run_full_pipeline(
         lr=lr,
         max_steps=max_steps,
         save_dir=save_dir,
+        data_path=str(windows_file),
     )
     print(f"⏱ Stage 5 duration: {time.perf_counter() - step5_start:.2f}s\n")
 

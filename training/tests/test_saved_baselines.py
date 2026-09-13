@@ -28,6 +28,8 @@ def prepared(tmp_path, monkeypatch):
         def save_pretrained(self, path):
             Path(path).mkdir(exist_ok=True)
             (Path(path) / "config.json").write_text("{}")
+            (Path(path) / "model.safetensors").touch()
+            (Path(path) / "tokenizer_config.json").write_text("{}")
 
         def embed(self, values):
             return values.unsqueeze(-1), None
@@ -238,3 +240,11 @@ def test_chronos_local_export_round_trip(tmp_path):
     np.testing.assert_allclose(
         loaded.predict([record]), np.clip(features @ coef + 20.0, 0, None), rtol=1e-5
     )
+
+
+def test_preparation_repairs_missing_downloaded_weights(prepared):
+    data, root, _ = prepared
+    weights = root / "chronos" / "model.safetensors"
+    weights.unlink()
+    train_baselines(str(data), str(root))
+    assert weights.is_file()

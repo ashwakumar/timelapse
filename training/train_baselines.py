@@ -28,7 +28,30 @@ def train_baselines(
         raise ValueError("batch_size must be positive")
     root = Path(baseline_dir)
     manifest = root / "manifest.json"
-    if manifest.exists() and not force:
+    required_files = [
+        root / "chronos_ridge.npz",
+        root / "chronos" / "config.json",
+        root / "text_model" / "config.json",
+        root / "text_model" / "tokenizer_config.json",
+    ]
+    weights_present = all(
+        any(
+            (root / folder / filename).is_file()
+            for filename in (
+                "model.safetensors",
+                "model.safetensors.index.json",
+                "pytorch_model.bin",
+                "pytorch_model.bin.index.json",
+            )
+        )
+        for folder in ("chronos", "text_model")
+    )
+    if (
+        manifest.exists()
+        and all(p.is_file() for p in required_files)
+        and weights_present
+        and not force
+    ):
         print(f"Baselines already prepared at {root}. Use --force to retrain.")
         return
     train, _ = load_splits(data_path)

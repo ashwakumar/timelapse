@@ -202,6 +202,7 @@ def train(
     lr: float = 2e-4,
     max_steps: int | None = None,
     save_dir: str = "models/aeroguard_tslm",
+    data_path: str = "data/processed/windows.jsonl",
 ):
     """Execute training of AeroGuard TSLM."""
     print("=" * 65)
@@ -219,7 +220,7 @@ def train(
     model.to(device)
 
     dataset = CMAPSSCoTDataset(
-        jsonl_path="data/processed/windows.jsonl",
+        jsonl_path=data_path,
         split="train",
         tokenizer=model.tokenizer,
         max_length=640,
@@ -301,6 +302,7 @@ if __name__ == "__main__":
         default=None,
         help="Optional step cap (useful for quick verification/calibration)",
     )
+    parser.add_argument("--data-path", default="data/processed/windows.jsonl")
     parser.add_argument("--save-dir", type=str, default="models/aeroguard_tslm")
     args = parser.parse_args()
 
@@ -311,4 +313,5 @@ if __name__ == "__main__":
         lr=args.lr,
         max_steps=args.max_steps,
         save_dir=args.save_dir,
+        data_path=args.data_path,
     )
