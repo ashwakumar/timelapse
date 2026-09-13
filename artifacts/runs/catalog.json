@@ -17,6 +17,12 @@
       "title": "Latest",
       "subtitle": "50 training passes (second run)",
       "dir": "artifacts/run-opentslm-50ep-b"
+    },
+    {
+      "id": "vitaldb-3-epochs",
+      "title": "VitalDB",
+      "subtitle": "3 training passes on VitalDB recordings (best = pass 2)",
+      "dir": "artifacts/run-opentslm-vitaldb-3ep"
     }
   ]
 }

@@ -12,7 +12,7 @@ class DemoStoryTest(unittest.TestCase):
         self.assertIn("reassess", story["how_it_helps"].lower())
         if story["sourcing"].get("dataset_id"):
             self.assertEqual(story["sourcing"]["dataset_id"], "vitaldb")
-        self.assertIn("synthetic", story["opentslm_run"]["note"].lower())
+        self.assertIn("vitaldb", story["opentslm_run"]["note"].lower())
         self.assertIn("models", story["held_out_vitaldb"])
         self.assertTrue(story["pitch"]["one_liner"])
 
@@ -27,6 +27,9 @@ class DemoRunsTest(unittest.TestCase):
         self.assertTrue(runs["50-epochs"]["has_model"])
         self.assertGreater(runs["3-epochs"]["passes"], 0)
         self.assertEqual(runs["50-epochs"]["passes"], 50)
+        self.assertTrue(runs["vitaldb-3-epochs"]["ready"])
+        self.assertTrue(runs["vitaldb-3-epochs"]["has_model"])
+        self.assertEqual(runs["vitaldb-3-epochs"]["passes"], 3)
 
 
 if __name__ == "__main__":

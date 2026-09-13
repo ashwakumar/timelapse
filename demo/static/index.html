@@ -182,7 +182,7 @@
     let current = null;
     let playing = false;
     let runs = [];
-    let selectedRun = "50-epochs";
+    let selectedRun = "vitaldb-3-epochs";
 
     function setView(name) {
       document.querySelectorAll(".view").forEach((el) => el.classList.toggle("on", el.id === name));
@@ -357,7 +357,8 @@
         const btn = ev.target.closest("button");
         if (btn) showRun(btn.dataset.id);
       };
-      const preferred = runs.find((r) => r.id === "50-epochs" && r.ready)
+      const preferred = runs.find((r) => r.id === "vitaldb-3-epochs" && r.ready)
+        || runs.find((r) => r.id === "50-epochs" && r.ready)
         || runs.find((r) => r.ready)
         || runs[0];
       if (preferred) showRun(preferred.id);

@@ -57,7 +57,7 @@ def resolve_run(run_id: str | None, root: Path = ROOT) -> dict:
             if row["id"] == run_id:
                 return row
         raise RuntimeError(f"Unknown run id: {run_id}")
-    for preferred in ("50-epochs", "50-epochs-b", "3-epochs"):
+    for preferred in ("vitaldb-3-epochs", "50-epochs", "50-epochs-b", "3-epochs"):
         for row in rows:
             if row["id"] == preferred and row.get("has_model"):
                 return row
