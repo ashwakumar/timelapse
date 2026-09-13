@@ -14,6 +14,7 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Entire](https://img.shields.io/badge/Entire-Enabled-10B981.svg?style=flat)](https://entire.io)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
 AeroGuard TSLM bridges continuous multivariate jet engine telemetry directly into the embedding space of a causal language model (`SmolLM-135M-Instruct`) via **Prefix Token Fusion**. In a single forward pass, it simultaneously forecasts numerical **Remaining Useful Life (RUL)** with sub-millisecond bounding and synthesizes actionable, physically grounded **Chain-of-Thought (CoT) engineering diagnostics**.
@@ -326,3 +327,9 @@ For the comprehensive scientific, physical, and architectural breakdown, see **[
     ├── dataset_sourcing_dossier.json    # Verified data sourcing dossier
     └── benchmark_results.json           # Evaluation metrics on Engines 81-100
 ```
+
+---
+
+## 🤖 Agentic Provenance & Entire Integration
+
+This repository is enabled with **[Entire](https://entire.io/)** (`entire enable`) for developer agent orchestration, checkpoint tracking, and lineage across multi-agent workflows (Claude Code, Codex, Cursor).
