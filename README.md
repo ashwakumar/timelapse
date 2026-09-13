@@ -141,14 +141,26 @@ uv run streamlit run demo/app.py
 ```
 
 ### Baseline Benchmarking
-Compares AeroGuard TSLM against XGBoost, Amazon Chronos-T5, and linear degradations:
+After training your main model, run all benchmarks with one command:
 ```bash
-# Evaluate baseline models (XGBoost, Mean Predictor)
-uv run python -m training.evaluate_baselines
-
-# Benchmark Chronos-T5 zero-shot time-series forecasting
-uv run python -m scripts.evaluate_chronos_baseline
+uv run python -m training.evaluate_baselines --model-dir models/aeroguard_tslm
 ```
+This fits XGBoost and a Ridge regressor on frozen Chronos embeddings using only the
+training split. It evaluates those models, the training-mean predictor, a frozen
+text-only SmolLM, and your saved AeroGuard scalar prediction head on the same test
+windows. AeroGuard is not retrained. Overlapping engine splits are rejected.
+Pretrained models download into the Hugging Face cache if missing.
+
+Results go to `artifacts/benchmark_results.json`, individual predictions to
+`artifacts/benchmark_results.predictions.jsonl`, and fitted baseline parameters to
+`models/baselines/`. The report includes text-model failure counts and coverage;
+text metrics only cover valid numeric responses. These are window-level RUL metrics,
+not a measurement of generated diagnostic quality. The dashboard comparison reads this
+report on each rerun; click **Refresh benchmark results** after evaluation finishes.
+
+Use `--device cuda` for GPU inference, `--batch-size 16` to control Chronos memory,
+and `--out-path` / `--baseline-dir` to preserve separate runs. Text-only generation
+runs on every test window and may be slow on CPU.
 
 ---
 

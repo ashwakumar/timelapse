@@ -607,97 +607,55 @@ with tab_evaluation:
         "—" if active_eval["abs_error"] is None else f"{active_eval['abs_error']:.1f} cycles",
     )
     st.caption(active_eval["estimate_source"])
-    # 5. 4-Tier Architectural Evolution & Empirical Benchmark
     st.markdown("---")
     st.markdown("### Model benchmarks")
-    st.markdown(
-        "Evaluation strictly conducted on **806 continuous test windows** across **held-out turbofan units (Engines 81–100)** "
-        "under a **strict zero-data-leakage protocol** (normalization fitted exclusively on training units 1–70)."
-    )
-
-    # Top KPI summary delta ribbon
-    bkpi1, bkpi2, bkpi3, bkpi4 = st.columns(4)
-    with bkpi1:
-        with st.container(border=True):
-            st.caption("AEROGUARD TSLM (OURS)")
-            st.subheader("7.94 Cycles")
-            st.caption("RUL RMSE (Held-Out Units)")
-    with bkpi2:
-        with st.container(border=True):
-            st.caption("AMAZON CHRONOS (T5)")
-            st.subheader("53.93 Cycles")
-            st.markdown(
-                "<span style='color: #93C9AA; font-weight: 700;'> 85.3% Error Reduction</span>",
-                unsafe_allow_html=True,
-            )
-    with bkpi3:
-        with st.container(border=True):
-            st.caption("NASA SAFETY PENALTY")
-            st.subheader("686.2")
-            st.caption("vs 17.2M (Chronos) / 5.6M (XGB)")
-    with bkpi4:
-        with st.container(border=True):
-            st.caption("COMPONENT FAULT ISOLATION")
-            st.subheader("Station 30")
-            st.caption("HPC Blades (CFM56-HPC-RB25)")
-
-    # Expander with tables and Chronos deep dive
-    with st.expander("Architecture comparison & benchmark details", expanded=False):
-        st.markdown("#### 1. The 4-Tier Architectural Paradigm Evolution")
-        st.markdown("""
-        | Generation | Paradigm | Model Architecture | Input Representation | Root-Cause Explainability | Component Localization |
-        | :--- | :--- | :--- | :--- | :--- | :--- |
-        | **Gen 1 (Legacy)** | Static Threshold | **Static Schedule (120 Cycles)** | Flight hours counter only (Sensors ignored) | None (Blind schedule) | No (Ignores wear) |
-        | **Gen 2 (Classical ML)** | Tabular Machine Learning | **XGBoost Regressor** | 70 tabular summary stats (mean, std, delta) | None (Black-box scalar) | No (Scalar only) |
-        | **Gen 3 (Modern TS Foundation)** | Pure Time-Series Foundation | **Amazon Chronos (`chronos-t5-tiny`)** | 14 univariate quantized token sequences | None (Pure numerical forecasts) | No (Univariate only) |
-        | **Gen 4 (SOTA — Ours)** | **Multimodal Temporal-Language** | **AeroGuard TSLM (`SmolLM-135M`)** | **14 continuous sensor patches + prompt** | **High (Causal aerothermal CoT)** | **Yes (Station 30 HPC Blades)** |
-        """)
-
-        st.markdown(
-            "#### 2. Empirical Benchmark on Held-Out Test Units (Engines 81–100, 806 Windows)"
+    st.button("Refresh benchmark results")
+    report_path = Path("artifacts/benchmark_results.json")
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        benchmark_models = report["models"]
+        benchmark_config = report["configuration"]
+        if not isinstance(benchmark_models, dict) or not benchmark_models:
+            raise ValueError("No measured model results")
+    except (OSError, ValueError, KeyError, TypeError):
+        st.info("No current benchmark report is available. Run the benchmark after training.")
+        st.code("uv run python -m training.evaluate_baselines", language="bash")
+    else:
+        st.caption(
+            f"Saved evaluation across {len(benchmark_config['test_units'])} test engines. "
+            "Metrics are measured per sensor window; lower error is better."
         )
-        st.markdown("""
-        | Model Architecture | Input Modality | RUL RMSE (Cycles) | RUL MAE | NASA Score (Safety Penalty) | Airworthiness Actionability |
-        | :--- | :--- | :---: | :---: | :---: | :--- |
-        | **AeroGuard TSLM (Ours)** | 14 Continuous Sensor Patches + Prompt | **7.94** | **6.31** | **686.2** | **Full Airworthiness Directive + AMM 72-31-00 BOM** |
-        | **Baseline: Text-Only LLM** | Serialized ASCII Number Tables | 21.11 | 16.81 | 15,197.2 | Unreliable (Tabular blindness, hallucinated parts) |
-        | **Classical ML (XGBoost)** | 70 Tabular Summary Stats | 45.91 | 31.02 | 5,602,498.5 | Fails FAA/EASA airworthiness auditability |
-        | **Amazon Chronos (T5 Foundation)** | 14 Discretized Time-Series Tokens | 53.93 | 40.12 | 17,218,386.0 | Pure numbers only; zero reasoning or dispatch logic |
-        | **Static Schedule (Legacy Standard)** | Flight Cycle Counter Only | 58.14 | 46.20 | 8,912,400.0 | Blind calendar threshold; severe outstation AOG risk |
-        """)
-
-        st.markdown("#### 3. Why Does AeroGuard Outperform Amazon Chronos by 85.3%?")
-        c_r1, c_r2, c_r3 = st.columns(3)
-        with c_r1:
-            st.markdown(
-                """
-            <div class='benchmark-card'>
-                <strong>1. Multivariate Coupling</strong><br>
-                Chronos tokenizes channels univariately. Jet engine degradation is inherently coupled: Station 30 erosion requires observing simultaneous Ps30 static pressure drop and T50 exhaust gas temperature rise. AeroGuard's patch encoder learns cross-channel correlation directly.
-            </div>
-            """,
-                unsafe_allow_html=True,
+        comparison_rows = [
+            {
+                "Model": name,
+                "RMSE (cycles)": metrics["RMSE"],
+                "MAE (cycles)": metrics["MAE"],
+                "NASA score": metrics["NASA_Score"],
+                "Evaluated windows": metrics["evaluated_windows"],
+                "Failed windows": metrics["failed_windows"],
+                "Coverage (%)": 100 * metrics["coverage"],
+            }
+            for name, metrics in benchmark_models.items()
+        ]
+        st.dataframe(comparison_rows, hide_index=True, width="stretch")
+        if any(m["failed_windows"] for m in benchmark_models.values()):
+            st.caption(
+                "Some predictions failed. Their metrics cover only valid responses, "
+                "so compare coverage before comparing errors."
             )
-        with c_r2:
-            st.markdown(
-                """
-            <div class='benchmark-card'>
-                <strong>2. Continuous Floats vs. Quantization</strong><br>
-                Chronos quantizes sensor values into discrete token buckets, discarding subtle sub-psi micro-drifts. AeroGuard projects continuous float tensors directly into latent embedding space, preserving exact physical derivatives.
-            </div>
-            """,
-                unsafe_allow_html=True,
-            )
-        with c_r3:
-            st.markdown(
-                """
-            <div class='benchmark-card'>
-                <strong>3. Actionability & Airworthiness</strong><br>
-                Chronos outputs bare numbers that cannot pass FAA audits. AeroGuard provides auditable Chain-of-Thought diagnostics, pinpoints failing LRU parts (<code>CFM56-HPC-RB25</code>), and issues automated route rerouting directives.
-            </div>
-            """,
-                unsafe_allow_html=True,
-            )
+        st.caption(
+            "AeroGuard uses its saved sensor encoder and RUL head. Chronos uses frozen "
+            "embeddings with a Ridge regressor fitted on the training split. "
+            "These scores do not evaluate diagnostic text quality."
+        )
+        with st.expander("Benchmark run details"):
+            st.json(benchmark_config)
+        st.download_button(
+            "Download benchmark results",
+            data=json.dumps(report, indent=2),
+            file_name="benchmark_results.json",
+            mime="application/json",
+        )
 
     # 6. Scientific Evidence & Operational Limitations (Bottom Expander)
     st.markdown("---")

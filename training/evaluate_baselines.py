@@ -1,16 +1,16 @@
-"""Evaluation Script: Comparing AeroGuard TSLM vs. Baselines on Held-Out Engines.
+"""Train baselines and evaluate actual predictions on engine-disjoint test windows."""
 
-Implements zero-leakage held-out evaluation on engine units 81-100:
-1. Classical ML: XGBoost Regressor trained on window summary telemetry
-2. Text-Only LLM: Standard language model prompted with tabular summary stats
-3. AeroGuard TSLM: Multimodal Time-Series Language Model with continuous temporal tokens
-"""
-
+import argparse
 import json
+import re
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
+import torch
 import xgboost as xgb
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 ACTIVE_SENSORS = [
@@ -65,120 +65,223 @@ def extract_tabular_features(records: list[dict]) -> tuple[np.ndarray, np.ndarra
     return np.array(features, dtype=np.float32), np.array(targets, dtype=np.float32)
 
 
+def load_splits(data_path: str) -> tuple[list[dict], list[dict]]:
+    """Load records and reject empty or overlapping engine splits."""
+    with open(data_path, encoding="utf-8") as handle:
+        records = [json.loads(line) for line in handle if line.strip()]
+    units: dict[str, set[int]] = {}
+    for record in records:
+        split = record["split"]
+        units.setdefault(split, set()).add(int(record["unit_number"]))
+    names = list(units)
+    for i, name in enumerate(names):
+        for other in names[i + 1 :]:
+            if units[name] & units[other]:
+                raise ValueError(f"Engine leakage between {name} and {other}")
+    train = [r for r in records if r["split"] == "train"]
+    test = [r for r in records if r["split"] == "test"]
+    if not train or not test:
+        raise ValueError("Benchmark requires nonempty train and test splits")
+    return train, test
+
+
+def prediction_metrics(targets: np.ndarray, predictions: np.ndarray) -> dict[str, Any]:
+    """Score finite predictions, explicitly reporting generation failures and coverage."""
+    valid = np.isfinite(predictions)
+    result: dict[str, Any] = {
+        "evaluated_windows": int(valid.sum()),
+        "failed_windows": int((~valid).sum()),
+        "coverage": float(valid.mean()),
+        "RMSE": None,
+        "MAE": None,
+        "NASA_Score": None,
+    }
+    if valid.any():
+        result.update(
+            RMSE=float(np.sqrt(mean_squared_error(targets[valid], predictions[valid]))),
+            MAE=float(mean_absolute_error(targets[valid], predictions[valid])),
+            NASA_Score=score_function(targets[valid], predictions[valid]),
+        )
+    return result
+
+
+def text_predictions(records: list[dict], model_id: str, device: str) -> np.ndarray:
+    """Run a frozen text-only LM on sensor summaries without exposing test labels."""
+    from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizerBase
+
+    tokenizer = cast(PreTrainedTokenizerBase, AutoTokenizer.from_pretrained(model_id))
+    model: Any = AutoModelForCausalLM.from_pretrained(model_id)
+    model.to(device)
+    model.eval()
+    predictions = []
+    for i, record in enumerate(records):
+        features, _ = extract_tabular_features([record])
+        rows = features[0].reshape(len(ACTIVE_SENSORS), 5)
+        summary = "\n".join(
+            f"{sensor}: " + ", ".join(f"{v:.4g}" for v in row)
+            for sensor, row in zip(ACTIVE_SENSORS, rows, strict=True)
+        )
+        prompt = (
+            "Estimate turbofan remaining useful life in cycles from these sensor summaries. "
+            "Columns: mean, standard deviation, minimum, maximum, final minus initial.\n"
+            f"{summary}\nReply with only one nonnegative number."
+        )
+        chat = tokenizer.apply_chat_template(
+            [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True
+        )
+        inputs = tokenizer(chat, return_tensors="pt").to(device)
+        with torch.no_grad():
+            output = model.generate(
+                **inputs,
+                max_new_tokens=16,
+                do_sample=False,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+        answer = tokenizer.decode(
+            output[0, inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
+        if not isinstance(answer, str):
+            raise TypeError("Expected one decoded text response")
+        answer = answer.strip()
+        match = re.fullmatch(r"[+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)", answer)
+        predictions.append(float(answer) if match else float("nan"))
+        if (i + 1) % 100 == 0:
+            print(f"Text-only LM: {i + 1}/{len(records)} windows", flush=True)
+    return np.array(predictions)
+
+
 def run_benchmark(
     data_path: str = "data/processed/windows.jsonl",
     out_path: str = "artifacts/benchmark_results.json",
-):
-    """Execute evaluation comparing XGBoost, Text-Only LLM, and AeroGuard TSLM."""
-    print("=" * 70)
-    print("AEROGUARD TSLM: HELD-OUT ENGINE BENCHMARK (ZERO DATA LEAKAGE)")
-    print("Training Split: Engines 1-70 | Validation: 71-80 (unused here) | Test: 81-100")
-    print("=" * 70)
+    model_dir: str = "models/aeroguard_tslm",
+    baseline_dir: str = "models/baselines",
+    chronos_model: str = "amazon/chronos-t5-tiny",
+    text_model: str = "HuggingFaceTB/SmolLM-135M-Instruct",
+    device: str = "cpu",
+    batch_size: int = 16,
+) -> dict[str, Any]:
+    """Fit train-split baselines and score them alongside a saved AeroGuard checkpoint.
 
-    # Load dataset
-    with open(data_path, encoding="utf-8") as f:
-        all_records = [json.loads(line) for line in f if line.strip()]
+    Args:
+        data_path: Processed windows with engine-disjoint split labels.
+        out_path: Destination JSON report; predictions use a sibling JSONL file.
+        model_dir: Existing trained AeroGuard checkpoint (never retrained here).
+        baseline_dir: Destination for fitted baseline parameters.
+        chronos_model: Frozen Hugging Face Chronos backbone identifier.
+        text_model: Frozen text-only instruction model identifier.
+        device: Torch device used for inference.
+        batch_size: Chronos embedding batch size.
 
-    train_records = [r for r in all_records if r["split"] == "train"]
-    test_records = [r for r in all_records if r["split"] == "test"]
+    Returns:
+        Metrics, configuration, and split provenance for this run.
+    """
+    from chronos import ChronosPipeline
 
-    print(
-        f"Loaded {len(train_records)} training records, {len(test_records)} held-out evaluation records."
-    )
+    from scripts.evaluate_chronos_baseline import extract_chronos_representations
+    from training.inference import AeroGuardPredictor
 
-    # 1. Evaluate Classical ML (XGBoost Regressor)
-    X_train, y_train = extract_tabular_features(train_records)
-    X_test, y_test = extract_tabular_features(test_records)
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    train, test = load_splits(data_path)
+    for filename in ("preprocessing.json", "tslm_adapters.pt"):
+        if not (Path(model_dir) / filename).is_file():
+            raise FileNotFoundError(f"Train AeroGuard first: missing {Path(model_dir) / filename}")
+    print(f"Benchmark: {len(train)} train windows, {len(test)} test windows", flush=True)
+    save_dir = Path(baseline_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    X_train, y_train = extract_tabular_features(train)
+    X_test, y_test = extract_tabular_features(test)
+    predictions = {"Training mean": np.full(y_test.shape, float(y_train.mean()))}
 
-    xgb_model = xgb.XGBRegressor(
+    print("Training XGBoost...", flush=True)
+    model = xgb.XGBRegressor(
         n_estimators=100,
         max_depth=5,
         learning_rate=0.08,
         random_state=42,
+        n_jobs=1,
         tree_method="hist",
     )
-    xgb_model.fit(X_train, y_train)
-    xgb_preds = xgb_model.predict(X_test)
-    # Clip predictions to valid cycle bounds
-    xgb_preds = np.clip(xgb_preds, 0, None)
+    model.fit(X_train, y_train)
+    predictions["XGBoost"] = np.clip(model.predict(X_test), 0, None)
+    model.save_model(save_dir / "xgboost.json")
 
-    xgb_rmse = float(np.sqrt(mean_squared_error(y_test, xgb_preds)))
-    xgb_mae = float(mean_absolute_error(y_test, xgb_preds))
-    xgb_score = score_function(y_test, xgb_preds)
+    print("Extracting frozen Chronos features and training Ridge...", flush=True)
+    pipeline = ChronosPipeline.from_pretrained(chronos_model, device_map=device)
+    pipeline.model.eval()
+    train_features, _ = extract_chronos_representations(pipeline, train, batch_size, device)
+    regressor = Ridge(alpha=10.0).fit(train_features, y_train)
+    del train_features
+    test_features, _ = extract_chronos_representations(pipeline, test, batch_size, device)
+    predictions["Chronos + Ridge"] = np.clip(regressor.predict(test_features), 0, None)
+    np.savez(save_dir / "chronos_ridge.npz", coef=regressor.coef_, intercept=regressor.intercept_)
+    del pipeline, test_features
 
-    # 2. Text-Only LLM Baseline (Hallucinates continuous dynamics without temporal embeddings)
-    # Modeled with statistical noise representing tabular summary blindness
-    np.random.seed(42)
-    text_llm_noise = np.random.normal(loc=12.0, scale=18.0, size=len(y_test))
-    text_llm_preds = np.clip(y_test + text_llm_noise, 0, None)
-    text_rmse = float(np.sqrt(mean_squared_error(y_test, text_llm_preds)))
-    text_mae = float(mean_absolute_error(y_test, text_llm_preds))
-    text_score = score_function(y_test, text_llm_preds)
+    print("Evaluating saved AeroGuard scalar prediction head...", flush=True)
+    predictor = AeroGuardPredictor(model_dir=model_dir, device=device)
+    predictions["AeroGuard TSLM"] = np.array([predictor.predict_rul(r["series"]) for r in test])
+    del predictor
+    print("Evaluating frozen text-only LM (this may take time)...", flush=True)
+    predictions["Text-only LM"] = text_predictions(test, text_model, device)
 
-    # 3. AeroGuard TSLM (Multimodal continuous temporal tokens + calibrated patch encoder)
-    # Evaluated on the held-out test set
-    tslm_noise = np.random.normal(loc=-1.2, scale=7.5, size=len(y_test))
-    tslm_preds = np.clip(y_test * 0.98 + tslm_noise, 0, None)
-    tslm_rmse = float(np.sqrt(mean_squared_error(y_test, tslm_preds)))
-    tslm_mae = float(mean_absolute_error(y_test, tslm_preds))
-    tslm_score = score_function(y_test, tslm_preds)
-
-    results = {
-        "Classical ML (XGBoost Regressor)": {
-            "RMSE": round(xgb_rmse, 2),
-            "MAE": round(xgb_mae, 2),
-            "NASA_Score": round(xgb_score, 1),
-            "Explainability": "None (Black-Box Scalar)",
-            "Actionability": "Low (No mechanical diagnosis)",
-        },
-        "Baseline 2: Text-Only LLM": {
-            "RMSE": round(text_rmse, 2),
-            "MAE": round(text_mae, 2),
-            "NASA_Score": round(text_score, 1),
-            "Explainability": "Unreliable (Hallucinates trends from table)",
-            "Actionability": "Risky (Hallucinated thresholds)",
-        },
-        "AeroGuard TSLM (Ours - Multimodal OpenTSLM)": {
-            "RMSE": round(tslm_rmse, 2),
-            "MAE": round(tslm_mae, 2),
-            "NASA_Score": round(tslm_score, 1),
-            "Explainability": "High (Physically Grounded CoT Rationale)",
-            "Actionability": "High (Specific Overhaul / Inspection Work Orders)",
-        },
+    config = {
+        "evaluated_at": datetime.now(UTC).isoformat(),
+        "data_path": data_path,
+        "model_dir": model_dir,
+        "chronos_model": chronos_model,
+        "text_model": text_model,
+        "device": device,
+        "batch_size": batch_size,
+        "sensors": ACTIVE_SENSORS,
+        "tabular_statistics": ["mean", "std", "min", "max", "drift"],
+        "training_mean": float(y_train.mean()),
+        "train_units": sorted({int(r["unit_number"]) for r in train}),
+        "test_units": sorted({int(r["unit_number"]) for r in test}),
+        "evaluation_unit": "window",
+        "text_metric_policy": "Valid numeric responses only; inspect coverage before comparison",
+        "aeroguard_prediction": "Saved temporal encoder and scalar RUL head",
     }
-
-    # Print formatted comparison table
-    print(
-        "\n"
-        + f"{'Model':<44} | {'RMSE':<8} | {'MAE':<8} | {'NASA Score':<12} | {'Explainability & Reasoning'}"
-    )
-    print("-" * 115)
-    for model_name, m in results.items():
-        print(
-            f"{model_name:<44} | {m['RMSE']:<8.2f} | {m['MAE']:<8.2f} | {m['NASA_Score']:<12.1f} | {m['Explainability']}"
-        )
-
-    print("\n" + "=" * 70)
-    print("🏆 Key Takeaway for Jury:")
-    print(
-        "1. Standalone XGBoost predicts numerical RUL with fair accuracy, but provides ZERO explainability or root-cause insight."
-    )
-    print(
-        "2. Text-Only LLMs hallucinate degradation rates and struggle to read multi-channel sensor tables."
-    )
-    print(
-        "3. AeroGuard TSLM uniquely bridges the gap: superior numerical precision with physically verified, actionable Chain-of-Thought work orders."
-    )
-    print("=" * 70)
-
-    # Save to disk
+    results = {
+        "configuration": config,
+        "models": {name: prediction_metrics(y_test, preds) for name, preds in predictions.items()},
+    }
     out_file = Path(out_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(results, f, indent=2)
-    print(f"\n📊 Benchmark results written to {out_file}")
+    temporary_report = out_file.with_suffix(out_file.suffix + ".tmp")
+    temporary_report.write_text(json.dumps(results, indent=2, allow_nan=False) + "\n")
+    temporary_report.replace(out_file)
+    (save_dir / "configuration.json").write_text(json.dumps(config, indent=2) + "\n")
+    with out_file.with_suffix(".predictions.jsonl").open("w") as handle:
+        for i, record in enumerate(test):
+            row = {
+                "unit_number": record["unit_number"],
+                "cycle": record.get("cycle"),
+                "true_rul": float(y_test[i]),
+                "predictions": {
+                    name: float(values[i]) if np.isfinite(values[i]) else None
+                    for name, values in predictions.items()
+                },
+            }
+            handle.write(json.dumps(row, allow_nan=False) + "\n")
+    for name, metrics in results["models"].items():
+        print(f"{name}: {metrics}")
+    print(f"Results: {out_file}; baseline weights: {save_dir}")
     return results
 
 
+def main() -> None:
+    """Run the complete benchmark from the command line."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-path", default="data/processed/windows.jsonl")
+    parser.add_argument("--out-path", default="artifacts/benchmark_results.json")
+    parser.add_argument("--model-dir", default="models/aeroguard_tslm")
+    parser.add_argument("--baseline-dir", default="models/baselines")
+    parser.add_argument("--chronos-model", default="amazon/chronos-t5-tiny")
+    parser.add_argument("--text-model", default="HuggingFaceTB/SmolLM-135M-Instruct")
+    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--batch-size", type=int, default=16)
+    run_benchmark(**vars(parser.parse_args()))
+
+
 if __name__ == "__main__":
-    run_benchmark()
+    main()
