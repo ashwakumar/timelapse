@@ -1,5 +1,6 @@
 .venv/
 .env
+models/huggingface/
 data/cache/
 data/lstm/
 data/timenet_registry/

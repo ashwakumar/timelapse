@@ -286,11 +286,28 @@ python -m training.train --config training/config_50_epochs.json \
   --output-dir artifacts/run-opentslm-50ep
 ```
 
+On another machine, pull branch `sid` (it already contains the ~93MB trained
+`best.pt` files). Hugging Face base weights stay off GitHub because they are
+several gigabytes; download them once with a token:
+
+```bash
+git clone -b sid https://github.com/ashwakumar/timelapse.git
+cd timelapse
+make setup
+# put a Hugging Face read token in .env as HF_TOKEN
+make hf
+make check
+make demo
+```
+
+Or without Make:
+
 ```bash
 set -a; source .env; set +a
 python scripts/run_demo.py --preload --port 8765
 ```
 
-Open http://127.0.0.1:8765 — pick a validation sample, inspect ABP/HR/SpO2/EtCO2,
-then generate Observation / Rationale / Recommendation.
+Open http://127.0.0.1:8765 — pick **After · 50 training passes**, press
+**Play window**, then **Show trained best.pt**. That is the held-out readout
+from the trained checkpoint. Teammates do not retrain.
 
