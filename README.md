@@ -1,5 +1,23 @@
 # timelapse
 
+## Real VitalDB training on Nebius
+
+Use [NEBIUS_TRAINING.md](NEBIUS_TRAINING.md) for the complete GPU handoff:
+`make vitaldb-setup`, `make vitaldb-data`, `make vitaldb-check`,
+`make vitaldb-train EPOCHS=5`, then `make vitaldb-export` to return the tuned
+weights and exact evaluation data through a GitHub release. Run
+`make vitaldb-eval DEVICE=cpu` on the returned bundle for the final local test.
+
+This new path trains actual OpenTSLM encoder/projector/LoRA weights against
+real VitalDB hypotension-onset targets. The older `training.train` example
+configuration and committed `run-opentslm-*` checkpoints use synthetic software
+fixtures. `scripts/finetune_opentslm_hypotension.py` is a small MLP substitute,
+not the real OpenTSLM training entry point. Do not use either for the new run.
+
+The target is an onset category, not numerical future MAP. The strict new
+preparation excludes the feature-screen cohort and reserves a patient-disjoint
+15% test split. Software tests passing does not establish predictive usefulness.
+
 Exploratory VitalDB pipeline for predicting the onset of sustained
 intraoperative hypotension from a 20-second observation window.
 
@@ -310,4 +328,3 @@ python scripts/run_demo.py --preload --port 8765
 Open http://127.0.0.1:8765 — pick **After · 50 training passes**, press
 **Play window**, then **Show trained best.pt**. That is the held-out readout
 from the trained checkpoint. Teammates do not retrain.
-

@@ -11,3 +11,7 @@ __pycache__/
 artifacts/opentslm_surgical_telemetry/
 artifacts/run-*/
 data/surgical_telemetry/
+.venv-vitaldb/
+data/vitaldb/
+artifacts/vitaldb-bundles/
+artifacts/vitaldb-evaluation/

@@ -61,18 +61,13 @@ def _macro_f1(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 def _binary_auprc(y_true: np.ndarray, scores: np.ndarray) -> float:
     """Average precision for any-onset (classes 0-3) vs none (class 4)."""
 
+    from sklearn.metrics import average_precision_score
+
     positive = (y_true.astype(int) != 4).astype(int)
     if positive.sum() == 0 or positive.sum() == len(positive):
         return float("nan")
-    order = np.argsort(-scores)
-    ranked = positive[order]
-    tp = np.cumsum(ranked)
-    fp = np.cumsum(1 - ranked)
-    precision = tp / np.maximum(tp + fp, 1)
-    recall = tp / positive.sum()
-    recall = np.concatenate([[0.0], recall])
-    precision = np.concatenate([[1.0], precision])
-    return float(np.sum(precision[1:] * np.diff(recall)))
+    # sklearn groups tied scores before integrating the precision-recall curve.
+    return float(average_precision_score(positive, scores))
 
 
 def score_model(
