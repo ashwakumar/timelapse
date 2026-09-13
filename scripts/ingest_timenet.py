@@ -20,6 +20,8 @@ from typing import Sequence
 
 import numpy as np
 
+from connectors.registry import connector_class_for
+
 
 REQUIRED_TIMENET_VERSION = "0.1.0"
 DATASET_VERSION = "0.1.0"
@@ -154,12 +156,25 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Run download/convert/schema validation without writing a registry.",
     )
+    parser.add_argument(
+        "--sourced-dataset-id",
+        default="vitaldb",
+        help="Challenge-1 dataset_id used to look up the TimeNet connector.",
+    )
     return parser.parse_args(argv)
 
 
-def main(argv: Sequence[str] | None = None) -> None:
-    args = _parse_args(argv)
-    data_dir = args.data_dir.resolve()
+def ingest_prepared(
+    data_dir: Path,
+    *,
+    registry: Path | None = None,
+    force: bool = False,
+    convert_only: bool = False,
+    sourced_dataset_id: str = "vitaldb",
+) -> dict:
+    """Convert a prepared corpus through the registered TimeNet connector."""
+
+    data_dir = data_dir.resolve()
     expected = _expected_counts(data_dir)
     _require_timenet()
 
@@ -167,51 +182,64 @@ def main(argv: Sequence[str] | None = None) -> None:
     repository_root = Path(__file__).resolve().parents[1]
     if str(repository_root) not in sys.path:
         sys.path.insert(0, str(repository_root))
-    from connectors.vitaldb.hypotension_windows import VitalDBHypotensionConnector
 
-    connector = VitalDBHypotensionConnector()
+    connector_cls = connector_class_for(sourced_dataset_id)
+    connector = connector_cls()
     metadata = connector.metadata()
-    if args.convert_only:
+    if convert_only:
         raw_refs = connector.download(data_dir)
         dataset = connector.convert(raw_refs)
         schema = dataset.derive_schema()
-        print(
-            json.dumps(
-                {
-                    "mode": "convert-only",
-                    "dataset_id": metadata.dataset_id,
-                    "records": len(dataset.records),
-                    "tasks": len(dataset.tasks),
-                    "time_series_specs": len(schema.time_series_specs),
-                    "annotations": len(schema.annotations),
-                },
-                indent=2,
-            )
-        )
-        return
+        return {
+            "mode": "convert-only",
+            "sourced_dataset_id": sourced_dataset_id,
+            "dataset_id": metadata.dataset_id,
+            "records": len(dataset.records),
+            "tasks": len(dataset.tasks),
+            "time_series_specs": len(schema.time_series_specs),
+            "annotations": len(schema.annotations),
+            "audit": {
+                "records": len(dataset.records),
+                "tasks": len(dataset.tasks),
+            },
+        }
+
+    if registry is None:
+        raise ValueError("registry output path is required unless --convert-only")
 
     from timenet.client import TimeNet
     from timenet.engine import run_pipeline
 
-    registry = args.out.resolve()
-    # An explicit temporary cache keeps the local runner independent of a
-    # writable user-level TIMENET_CACHE directory. This connector only discovers
-    # prepared local files, so no source data is copied into it.
+    registry = registry.resolve()
     with tempfile.TemporaryDirectory(prefix="timenet-vitaldb-cache-") as cache_dir:
         version_dir = run_pipeline(
             connector,
             registry,
             cache_dir=Path(cache_dir),
-            force=args.force,
+            force=force,
         )
     readback = TimeNet(registry).load(f"{metadata.dataset_id}@{DATASET_VERSION}")
-    report = {
+    return {
         "mode": "build-and-readback",
+        "sourced_dataset_id": sourced_dataset_id,
         "timenet_version": REQUIRED_TIMENET_VERSION,
+        "dataset_id": metadata.dataset_id,
+        "dataset_version": DATASET_VERSION,
         "version_dir": str(version_dir),
         "manifest": str(Path(version_dir) / "manifest.json"),
         "audit": audit_dataset(readback, expected),
     }
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = _parse_args(argv)
+    report = ingest_prepared(
+        args.data_dir,
+        registry=None if args.convert_only else args.out,
+        force=args.force,
+        convert_only=args.convert_only,
+        sourced_dataset_id=args.sourced_dataset_id,
+    )
     print(json.dumps(report, indent=2))
 
 

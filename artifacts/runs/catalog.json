@@ -1,0 +1,22 @@
+{
+  "runs": [
+    {
+      "id": "3-epochs",
+      "title": "Before",
+      "subtitle": "3 training passes",
+      "dir": "artifacts/run-opentslm-3ep"
+    },
+    {
+      "id": "50-epochs",
+      "title": "After",
+      "subtitle": "50 training passes",
+      "dir": "artifacts/run-opentslm-50ep"
+    },
+    {
+      "id": "50-epochs-b",
+      "title": "Latest",
+      "subtitle": "50 training passes (second run)",
+      "dir": "artifacts/run-opentslm-50ep-b"
+    }
+  ]
+}

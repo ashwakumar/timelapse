@@ -14,6 +14,35 @@ The two dependency sets pin conflicting versions of NumPy and scikit-learn, so
 keep them in separate virtual environments. This file documents the first
 pipeline; see [`training/README.md`](training/README.md) for the second.
 
+## Problem and data sourcing
+
+**Target user:** an anesthesiologist or anesthesia trainee at the operating-room
+monitor.
+
+**Problem:** current alarms fire when MAP is already low. The useful task is to
+read a short multivariate window and say whether a *new* sustained MAP < 65 mmHg
+episode is about to start in 3, 5, 10, or 15 minutes, then prompt a reassessment
+rather than a drug dose.
+
+[`sourcing/`](sourcing/) is the agentic search → assess → select → retrieve loop
+for that card. It does not start from VitalDB as a given: a seed catalog of OR,
+ICU, wearable, and industrial time-series sets is merged with a Hugging Face Hub
+search, scored against hard constraints (MAP/ABP, subject IDs, uncredentialed
+programmatic access, research license), and the top hard-pass is fetched far
+enough to prove the access URL still answers. Failures are excluded and the
+agent retries.
+
+```bash
+python scripts/source_datasets.py
+python scripts/source_datasets.py --offline
+```
+
+The run writes `artifacts/data_sourcing/report.json` and `selection.json`.
+VitalDB is the expected selection for this problem; nearby datasets (HiRID,
+MIMIC waveforms, PulseDB, WESAD, C-MAPSS) remain in the report with rejection
+reasons. Keep this step: TimeNet ingestion refuses to run without that
+selection file.
+
 ## Environment
 
 ```bash
@@ -137,33 +166,50 @@ IQRs, and each channel description carries those physical-scale statistics.
 OpenTSLM pads the 10 source samples on the right to its patch-size multiple; the
 prompt distinguishes that padding from source-missing values marked by mask 0.
 
-## TimeNet connector
+## Bring the data into TimeNet
 
-[`connectors/vitaldb/hypotension_windows`](connectors/vitaldb/hypotension_windows)
-implements the released [TimeNet](https://github.com/OpenTSLM/TimeNet)
-`BaseConnector` contract for prepared top-N corpora (1–17 current dynamic signals;
-top-5 and top-10 verified with real data). The dependency
-is pinned to `timenet[build]==0.1.0`; the inspected upstream revision was
-`c39ca32b64ad0c89ea54093dbcb285c1a93eb006`.
+This step starts from the challenge-1 selection, not from a hardcoded path.
 
-Check the schema without writing anything, then build a local TimeF registry and
-read it back through the official client:
+[`connectors/registry.py`](connectors/registry.py) maps a sourced `dataset_id`
+to a reusable TimeNet `BaseConnector`. VitalDB is implemented as
+[`connectors/vitaldb/hypotension_windows`](connectors/vitaldb/hypotension_windows):
+it standardises numeric signals with units, paired observation-mask channels,
+patient/case annotations, and two learning targets documented in
+[`tasks.yaml`](connectors/vitaldb/hypotension_windows/tasks.yaml):
+
+- **classification** `hypotension_onset_horizon_v1`: `within_3`, `within_5`,
+  `within_10`, `within_15`, `none_within_15`
+- **question answering**: the 20-second window plus masks in, a language
+  horizon answer out, with an INTERPRET / ANTICIPATE / ACT rationale that does
+  not prescribe treatment
 
 ```bash
-python scripts/ingest_timenet.py --data-dir data/lstm/top_10 --convert-only
-python scripts/ingest_timenet.py \
-  --data-dir data/lstm/top_10 \
-  --out data/timenet_registry
+python scripts/source_datasets.py
+python scripts/bring_into_timenet.py --num-parameters 5 --max-cases 16
 ```
 
-Add `--force` to replace an existing registry. Each configuration has a
-collision-free ID: `hackzurich/vitaldb-hypotension-top-5` or
-`hackzurich/vitaldb-hypotension-top-10`. The readback audit checks record and
-task counts, exact agreement between nullable signal values and masks, and
-patient-disjoint splits.
+`bring_into_timenet.py` will prepare `data/lstm/top_5/` if needed, publish a
+local TimeF registry through TimeNet 0.1.0 `run_pipeline`, read it back, audit
+masks and patient-disjoint splits, and write
+`artifacts/timenet_ingestion/report.json`. Use `--skip-prepare` when the NPZs
+already exist, and `--convert-only` to validate the schema without writing a
+registry.
 
-TimeNet 0.1.0 publishes to a local registry; its official documentation says a
-hosted backend is planned.
+The connector is pinned to `timenet[build]==0.1.0` (inspected revision
+`c39ca32b64ad0c89ea54093dbcb285c1a93eb006`). Dataset ids are collision-free:
+`hackzurich/vitaldb-hypotension-top-5` or
+`hackzurich/vitaldb-hypotension-top-10`. TimeNet 0.1.0 publishes to a local
+registry; hosted backends are documented as planned.
+
+Lower-level commands remain available:
+
+```bash
+python scripts/prepare_lstm_dataset.py 5 --max-cases 16
+python scripts/ingest_timenet.py --data-dir data/lstm/top_5 --convert-only
+python scripts/ingest_timenet.py \
+  --data-dir data/lstm/top_5 \
+  --out data/timenet_registry
+```
 
 ## Tests
 
@@ -171,7 +217,7 @@ The `tests/` directory covers both pipelines, so run each group in its own
 environment. With `.venv` active:
 
 ```bash
-python -m unittest tests.test_timenet_ingestion tests.test_opentslm_vitaldb_dataset -v
+python -m unittest tests.test_dataset_sourcing tests.test_timenet_bridge tests.test_timenet_ingestion tests.test_opentslm_vitaldb_dataset tests.test_tslm_evaluation -v
 ```
 
 The `tests/test_training_*.py` files import `torch` and the `training` package
@@ -192,6 +238,32 @@ a different set of parameters, and no device identities, so it does not satisfy
 that contract and is not consumed by `training/train.py`. See
 [`training/README.md`](training/README.md) for what an export would require.
 
+## Train and evaluate a TSLM
+
+Challenge 3 uses the **already prepared**, patient- and case-disjoint NPZ
+splits. It does not re-source data or rebuild the TimeNet connector.
+
+[`evaluation/`](evaluation/) trains two models on `train` only and scores
+`test` (validation is unused for the reported numbers):
+
+- **Baseline:** ridge classifier on last/mean/std/delta/missingness summaries.
+- **TSLM:** ridge head over OpenTSLM-style value+mask patches (`patch_size=2`),
+  then decoded to INTERPRET / ANTICIPATE / ACT / Answer text. Inputs never
+  include future MAP.
+
+```bash
+python scripts/train_evaluate_tslm.py --data-dir data/lstm/top_5
+```
+
+The report at `artifacts/tslm_evaluation/report.json` includes the leakage
+audit (subject/case disjoint; device IDs are not available in VitalDB so
+device-disjoint evaluation is not claimed). Optional neural fine-tune in the
+training environment:
+
+```bash
+python scripts/finetune_opentslm_hypotension.py --data-dir data/lstm/top_5
+```
+
 ## Data license
 
 The source files were acquired through the
@@ -199,3 +271,26 @@ The source files were acquired through the
 [CC BY-NC-SA 4.0 terms](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 The connector records that license as `other` because TimeNet 0.1.0 has no
 combined CC BY-NC-SA enum.
+
+## Demonstration
+
+The demo is an OR-style monitor at http://127.0.0.1:8765. Press **Play window**
+to record the 20-second vitals strip, then Interpret / Anticipate / Act.
+**Evaluation** has a **Before** folder (3 training passes) and an **After**
+folder (50 passes, once that run finishes). Train the longer run into its own
+directory so the page can show both:
+
+```bash
+python -m training.train --config training/config_50_epochs.json \
+  --manifest data/surgical_telemetry/manifest.jsonl \
+  --output-dir artifacts/run-opentslm-50ep
+```
+
+```bash
+set -a; source .env; set +a
+python scripts/run_demo.py --preload --port 8765
+```
+
+Open http://127.0.0.1:8765 — pick a validation sample, inspect ABP/HR/SpO2/EtCO2,
+then generate Observation / Rationale / Recommendation.
+

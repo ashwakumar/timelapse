@@ -1,0 +1,41 @@
+# TimeNet task contract for this connector.
+# Signals and masks live on the record; these targets are what the TSLM learns.
+
+classification:
+  schema: hypotension_onset_horizon_v1
+  description: >
+    Tightest horizon containing the first onset of sustained MAP below 65 mmHg
+    for at least 60 contiguous observed seconds, after a fully observed
+    non-low preceding minute. Generated research labels, not clinical
+    adjudication.
+  labels:
+    - within_3
+    - within_5
+    - within_10
+    - within_15
+    - none_within_15
+
+question_answering:
+  prompt: >
+    Using only the supplied 20-second signal history and observation masks,
+    predict the tightest available horizon containing the first onset of
+    sustained MAP below 65 mmHg. Do not infer a causal mechanism or recommend
+    a drug or dose.
+  answer_text:
+    within_3: hypotension within 3 minutes
+    within_5: hypotension within 5 minutes
+    within_10: hypotension within 10 minutes
+    within_15: hypotension within 15 minutes
+    none_within_15: no hypotension within 15 minutes
+  rationale_template: |
+    INTERPRET: MAP trajectory over the observed input samples.
+    ANTICIPATE: The generated research label.
+    ACT: Verify signal quality and reassess; do not prescribe treatment.
+
+annotations:
+  - source_split
+  - source_case_id
+  - input_start_offset
+  - cutoff_offset
+  - label_provenance
+  - mask_semantics

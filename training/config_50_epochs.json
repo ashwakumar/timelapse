@@ -12,7 +12,7 @@
   },
   "training": {
     "manifest_path": "data/surgical_telemetry/manifest.jsonl",
-    "output_dir": "artifacts/opentslm_surgical_telemetry",
+    "output_dir": "artifacts/run-opentslm-50ep",
     "seed": 42,
     "validation_fraction": 0.2,
     "require_device_id": true,

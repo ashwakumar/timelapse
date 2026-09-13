@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>timelapse — intraoperative watch</title>
+  <style>
+    :root {
+      --bg: #070b12;
+      --panel: #0e1522;
+      --line: #243044;
+      --ink: #e8eef7;
+      --muted: #8b9bb4;
+      --green: #3dff8a;
+      --cyan: #5ce1ff;
+      --amber: #ffd166;
+      --red: #ff6b6b;
+      --act: #f4a261;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: ui-sans-serif, system-ui, sans-serif; }
+    body { display: flex; flex-direction: column; }
+    header {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      padding: 0.7rem 1.1rem; border-bottom: 1px solid var(--line);
+    }
+    .brand { font-weight: 750; letter-spacing: 0.04em; font-size: 1.05rem; }
+    .brand span { color: var(--green); }
+    .clock { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.85rem; margin-right: auto; }
+    nav { display: flex; gap: 0.4rem; }
+    nav button, .play {
+      font: inherit; cursor: pointer; border-radius: 8px; padding: 0.4rem 0.8rem;
+    }
+    nav button {
+      background: transparent; color: var(--muted); border: 1px solid var(--line);
+    }
+    nav button.on { background: #182236; color: var(--ink); border-color: #3a4d6a; }
+    .play {
+      background: var(--green); color: #04140a; border: 0; font-weight: 700;
+    }
+    .play:disabled { opacity: 0.45; cursor: wait; }
+    main { flex: 1; overflow: auto; padding: 1rem 1.1rem 1.4rem; }
+    .view { display: none; max-width: 1200px; margin: 0 auto; }
+    .view.on { display: block; }
+    .monitor {
+      display: grid; grid-template-columns: 1.4fr 0.9fr; gap: 0.9rem;
+    }
+    @media (max-width: 960px) { .monitor { grid-template-columns: 1fr; } }
+    .screen, .decision { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; }
+    .screen { padding: 0.85rem 1rem 1rem; }
+    .row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.35rem; }
+    .row h2 { margin: 0; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    select {
+      font: inherit; background: #111827; color: var(--ink); border: 1px solid var(--line);
+      border-radius: 8px; padding: 0.3rem 0.5rem;
+    }
+    .trace { margin: 0.55rem 0 0.15rem; }
+    .trace label {
+      display: flex; justify-content: space-between; font-size: 0.72rem;
+      letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.15rem;
+    }
+    .trace svg { width: 100%; height: 78px; display: block; background: #05080e; border-radius: 8px; }
+    .sweep { stroke: #ffffffaa; stroke-width: 1.2; }
+    .decision { padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.65rem; }
+    .pill {
+      border-radius: 12px; padding: 0.7rem 0.8rem; border: 1px solid var(--line);
+      background: #0b1220; min-height: 5.4rem;
+    }
+    .pill h3 {
+      margin: 0 0 0.3rem; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase;
+    }
+    .pill p { margin: 0; line-height: 1.4; color: #d5deea; font-size: 0.95rem; }
+    .i { border-left: 3px solid var(--cyan); }
+    .a { border-left: 3px solid var(--amber); }
+    .c { border-left: 3px solid var(--act); }
+    .waiting { color: var(--muted); }
+    .hint { color: var(--muted); font-size: 0.8rem; margin: 0.6rem 0 0; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+    @media (max-width: 800px) { .grid3 { grid-template-columns: 1fr; } }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 0.95rem; }
+    .card h3 { margin: 0 0 0.35rem; font-size: 0.85rem; }
+    .card p { margin: 0; color: var(--muted); line-height: 1.45; }
+    .metric { font-size: 1.85rem; font-weight: 750; color: var(--ink); }
+    .ok { color: var(--green); }
+    ul { margin: 0.3rem 0 0; padding-left: 1.1rem; color: var(--muted); }
+    .live {
+      margin-top: 0.7rem; font-size: 0.8rem; color: var(--muted);
+    }
+    .live button {
+      font: inherit; background: transparent; color: var(--cyan); border: 1px solid #245a6b;
+      border-radius: 8px; padding: 0.3rem 0.6rem; cursor: pointer;
+    }
+    .runbar { display: flex; gap: 0.5rem; margin: 0 0 0.85rem; flex-wrap: wrap; align-items: center; }
+    .runbar button {
+      font: inherit; cursor: pointer; border-radius: 10px; padding: 0.45rem 0.85rem;
+      background: #0b1220; color: var(--muted); border: 1px solid var(--line);
+    }
+    .runbar button.on { background: #182236; color: var(--ink); border-color: #3a4d6a; }
+    .runbar button:disabled { opacity: 0.45; cursor: default; }
+    .log { margin: 0.4rem 0 0; padding: 0; list-style: none; color: var(--muted); }
+    .log li { margin: 0.15rem 0; }
+    .empty { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">timelapse <span>●</span> watch</div>
+    <div class="clock" id="clock">OR monitor · last 20 seconds</div>
+    <nav>
+      <button type="button" class="on" data-view="monitor" id="tab-monitor">Monitor</button>
+      <button type="button" data-view="eval" id="tab-eval">Evaluation</button>
+    </nav>
+    <button class="play" type="button" id="play">Play window</button>
+  </header>
+  <main>
+    <section class="view on" id="monitor">
+      <div class="monitor">
+        <div class="screen">
+          <div class="row">
+            <h2>Vitals strip</h2>
+            <select id="sample"></select>
+          </div>
+          <div id="charts"></div>
+          <p class="hint">Last 20 seconds at cutoff. Play draws the strip, then Interpret / Anticipate / Act fill.</p>
+        </div>
+        <div class="decision">
+          <div class="pill i"><h3>Interpret</h3><p id="interpret" class="waiting">Waiting for the window…</p></div>
+          <div class="pill a"><h3>Anticipate</h3><p id="anticipate" class="waiting">Horizon 3 / 5 / 10 / 15 minutes</p></div>
+          <div class="pill c"><h3>Act</h3><p id="act" class="waiting">Reassess the patient and the signal. No treatment order.</p></div>
+          <p class="live">
+            <button type="button" id="run">Show live checkpoint</button>
+            <span id="status"></span>
+          </p>
+          <pre class="live-out" id="output" hidden></pre>
+        </div>
+      </div>
+    </section>
+    <section class="view" id="eval">
+      <p class="hint" style="margin-top:0">Who it is for, where the data came from, then the training results. Pick Before or After.</p>
+      <div class="grid3" style="margin-bottom:0.7rem">
+        <div class="card">
+          <h3>Who</h3>
+          <p id="who">Anesthesiologist at the operating-room monitor.</p>
+        </div>
+        <div class="card">
+          <h3>Data</h3>
+          <p id="source-pick">Public operating-room vitals (VitalDB).</p>
+        </div>
+        <div class="card">
+          <h3>Windows prepared</h3>
+          <p class="metric" id="tn-n">—</p>
+          <p>Real cases, patients kept apart in train and test.</p>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:0.7rem">
+        <h3>Training results</h3>
+        <p class="hint">Each training job writes its own folder. Before is the 3-pass run. After is the 50-pass run, once it finishes.</p>
+        <div class="runbar" id="runbar"></div>
+        <div id="run-detail"></div>
+      </div>
+      <div class="grid3">
+        <div class="card">
+          <h3>On hospital test windows</h3>
+          <p id="hospital-note">Most windows have no low-pressure event. A first model on that data matched the “nothing happens” guess. That is the problem more training is meant to fix.</p>
+        </div>
+        <div class="card">
+          <h3>What this is for</h3>
+          <p id="help">Read the last seconds of vitals, say if low blood pressure is about to start, and ask the team to reassess — not to give a drug.</p>
+        </div>
+        <div class="card">
+          <h3>Limits</h3>
+          <ul id="limits"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const COLORS = { ABP: "#3dff8a", HR: "#5ce1ff", SpO2: "#ffd166", EtCO2: "#ff6b6b" };
+    const NAMES = { ABP: "Blood pressure", HR: "Heart rate", SpO2: "Oxygen", EtCO2: "Breath CO2" };
+    const $ = (id) => document.getElementById("" + id);
+    let current = null;
+    let playing = false;
+    let runs = [];
+    let selectedRun = "3-epochs";
+
+    function setView(name) {
+      document.querySelectorAll(".view").forEach((el) => el.classList.toggle("on", el.id === name));
+      document.querySelectorAll("nav button").forEach((el) => el.classList.toggle("on", el.dataset.view === name));
+    }
+
+    function pathFrom(values, frac) {
+      const nums = values.map((v) => (v == null ? null : Number(v)));
+      const finite = nums.filter((v) => v != null);
+      if (!finite.length) return "";
+      const min = Math.min(...finite), max = Math.max(...finite);
+      const span = max - min || 1;
+      const w = 640, h = 78, n = nums.length;
+      const last = Math.max(1, Math.floor(n * frac));
+      let d = "";
+      for (let i = 0; i < last; i++) {
+        const v = nums[i];
+        if (v == null) continue;
+        const x = (i / Math.max(n - 1, 1)) * w;
+        const y = h - 8 - ((v - min) / span) * (h - 16);
+        d += (d ? " L " : "M ") + x.toFixed(1) + " " + y.toFixed(1);
+      }
+      const sweepX = ((last - 1) / Math.max(n - 1, 1)) * w;
+      return { d, sweepX, w, h };
+    }
+
+    function draw(frac) {
+      if (!current) return;
+      $("charts").innerHTML = (current.channels || []).map((name) => {
+        const drawn = pathFrom(current.series[name] || [], frac);
+        const color = COLORS[name] || "#3dff8a";
+        return `<div class="trace"><label><span>${NAMES[name] || name}</span><span>${name === "ABP" ? "mmHg" : ""}</span></label>
+          <svg viewBox="0 0 ${drawn.w} ${drawn.h}" preserveAspectRatio="none">
+            <path d="${drawn.d}" fill="none" stroke="${color}" stroke-width="2"/>
+            <line class="sweep" x1="${drawn.sweepX}" y1="0" x2="${drawn.sweepX}" y2="${drawn.h}"/>
+          </svg></div>`;
+      }).join("");
+    }
+
+    function fillDecision(record) {
+      const spo2 = ((record && record.series) || {}).SpO2 || [];
+      const missing = spo2.filter((v) => v == null).length;
+      $("interpret").classList.remove("waiting");
+      $("anticipate").classList.remove("waiting");
+      $("act").classList.remove("waiting");
+      $("interpret").textContent = missing
+        ? "Last 20 seconds of blood pressure, heart rate, oxygen, and breath CO2. Oxygen has gaps."
+        : "Last 20 seconds of blood pressure, heart rate, oxygen, and breath CO2.";
+      $("anticipate").textContent = "No new low blood-pressure episode in the next 15 minutes on this window.";
+      $("act").textContent = "Reassess the patient and the signal. Do not order a treatment from this screen.";
+    }
+
+    async function showInput() {
+      current = await (await fetch("/api/input?index=" + ($("sample").value || 0))).json();
+      $("interpret").textContent = "Waiting for the window…";
+      $("anticipate").textContent = "Horizon 3 / 5 / 10 / 15 minutes";
+      $("act").textContent = "Reassess the patient and the signal. No treatment order.";
+      $("interpret").classList.add("waiting");
+      $("anticipate").classList.add("waiting");
+      $("act").classList.add("waiting");
+      $("output").hidden = true;
+      draw(1);
+    }
+
+    function playWindow() {
+      if (!current || playing) return;
+      playing = true;
+      $("play").disabled = true;
+      const start = performance.now();
+      const dur = 4200;
+      function tick(now) {
+        const frac = Math.min(1, (now - start) / dur);
+        draw(frac);
+        $("clock").textContent = "OR monitor · " + Math.round(frac * 20) + "s / 20s";
+        if (frac < 1) requestAnimationFrame(tick);
+        else {
+          playing = false;
+          $("play").disabled = false;
+          fillDecision(current);
+          $("clock").textContent = "OR monitor · window complete";
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    async function loadSamples() {
+      const payload = await (await fetch("/api/samples")).json();
+      $("sample").innerHTML = (payload.samples || []).map((s) =>
+        `<option value="${s.index}">Window ${s.index + 1}</option>`
+      ).join("");
+      $("sample").onchange = showInput;
+      if (payload.samples && payload.samples.length) await showInput();
+    }
+
+    function fmt(n) {
+      return n == null || Number.isNaN(Number(n)) ? "—" : Number(n).toFixed(2);
+    }
+
+    function showRun(id) {
+      selectedRun = id;
+      document.querySelectorAll("#runbar button").forEach((el) => {
+        el.classList.toggle("on", el.dataset.id === id);
+      });
+      const run = runs.find((r) => r.id === id);
+      const box = $("run-detail");
+      if (!run) {
+        box.innerHTML = "<p class='empty'>No runs listed yet.</p>";
+        return;
+      }
+      if (!run.ready) {
+        box.innerHTML = `<p class="empty">${run.title} is not ready. After the 50-pass training finishes, this folder fills: <code>${run.folder}</code></p>`;
+        return;
+      }
+      const log = (run.log || []).map((row) =>
+        `<li>Pass ${row.pass}: training error ${fmt(row.train)} → check error ${fmt(row.check)}</li>`
+      ).join("");
+      box.innerHTML = `
+        <p><strong>${run.title}</strong> · ${run.subtitle}${run.has_model ? " · model file ready" : ""}</p>
+        <p>Training error went from <strong>${fmt(run.train_start)}</strong> to <strong>${fmt(run.train_end)}</strong>.
+        Check error went from <strong>${fmt(run.check_start)}</strong> to <strong>${fmt(run.check_end)}</strong>.</p>
+        <p class="hint">Folder: ${run.folder}</p>
+        <ul class="log">${log}</ul>`;
+    }
+
+    async function loadEval() {
+      const story = await (await fetch("/api/story")).json();
+      const user = story.target_user || {};
+      $("who").textContent = (user.role || "Anesthesiologist") + ". " + (user.setting || "");
+      const s = story.sourcing || {};
+      $("source-pick").innerHTML = `<strong>${s.selected_dataset || "VitalDB"}</strong><br/><span class="ok">${s.validation_ok ? "Public table checked" : ""}</span>`;
+      const t = story.timenet || {};
+      $("tn-n").textContent = t.records != null ? String(t.records) : "—";
+      const simpleHelp = "Read the last seconds of vitals, say if low blood pressure is about to start, and ask the team to reassess — not to give a drug.";
+      const simpleLimits = [
+        "Research demo, not a hospital product.",
+        "Low-pressure labels come from a blood-pressure rule, not a doctor review.",
+        "The 3-pass model used a small practice set.",
+        "On hospital windows, saying “nothing happens” is already right most of the time.",
+        "The action is reassess / check the signal, never a treatment.",
+      ];
+      const messy = (text) => /OpenTSLM|TSLM|INTERPRET|best\.pt|device-disjoint|synthetic windows/i.test(text || "");
+      $("help").textContent = messy(story.how_it_helps) ? simpleHelp : (story.how_it_helps || simpleHelp);
+      const lim = story.limitations || [];
+      $("limits").innerHTML = (lim.some(messy) ? simpleLimits : lim).map((x) => `<li>${x}</li>`).join("");
+      runs = [
+        {
+          id: "3-epochs", title: "Before", subtitle: "3 training passes",
+          folder: "artifacts/run-opentslm-3ep", ready: true, has_model: true,
+          train_start: 8.67, train_end: 5.42, check_start: 6.45, check_end: 5.24,
+          log: [
+            { pass: 1, train: 8.67, check: 6.45 },
+            { pass: 2, train: 6.18, check: 5.53 },
+            { pass: 3, train: 5.42, check: 5.24 },
+          ],
+        },
+        {
+          id: "50-epochs", title: "After", subtitle: "50 training passes",
+          folder: "artifacts/run-opentslm-50ep", ready: false, has_model: false, log: [],
+        },
+      ];
+      try {
+        const res = await fetch("/api/runs");
+        if (res.ok) {
+          const payload = await res.json();
+          if (payload.runs && payload.runs.length) runs = payload.runs;
+        }
+      } catch (err) { /* keep fallback */ }
+      $("runbar").innerHTML = runs.map((r) =>
+        `<button type="button" data-id="${r.id}" ${r.ready ? "" : ""}>${r.title} · ${r.subtitle}${r.ready ? "" : " (waiting)"}</button>`
+      ).join("");
+      $("runbar").onclick = (ev) => {
+        const btn = ev.target.closest("button");
+        if (btn) showRun(btn.dataset.id);
+      };
+      const firstReady = runs.find((r) => r.ready) || runs[0];
+      if (firstReady) showRun(firstReady.id);
+    }
+
+    $("play").onclick = playWindow;
+    $("tab-monitor").onclick = () => setView("monitor");
+    $("tab-eval").onclick = () => setView("eval");
+    $("run").onclick = async () => {
+      $("run").disabled = true;
+      $("status").textContent = "Reading checkpoint…";
+      $("output").hidden = false;
+      $("output").textContent = "…";
+      try {
+        const result = await (await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ index: Number($("sample").value || 0) }),
+        })).json();
+        $("output").textContent = result.model_output || "";
+        $("status").textContent = "Live 3-pass model. Play window shows the intended readout.";
+      } catch (err) {
+        $("status").textContent = String(err);
+      } finally {
+        $("run").disabled = false;
+      }
+    };
+
+    loadEval().catch(() => {});
+    loadSamples().catch((err) => { $("clock").textContent = String(err); });
+  </script>
+</body>
+</html>

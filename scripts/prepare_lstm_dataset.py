@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
@@ -18,14 +19,23 @@ import vitaldb
 from sklearn.model_selection import GroupShuffleSplit
 from tqdm import tqdm
 
-from feature_screen import TARGET_TRACK, TRACKS, first_true_run_start, load_case
+_SCRIPTS = Path(__file__).resolve().parent
+_ROOT = _SCRIPTS.parent
+for _path in (_ROOT, _SCRIPTS):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
+
+try:
+    from scripts.feature_screen import TARGET_TRACK, TRACKS, first_true_run_start, load_case
+except ImportError:
+    from feature_screen import TARGET_TRACK, TRACKS, first_true_run_start, load_case
 
 
 LABELS = ["within_3", "within_5", "within_10", "within_15", "none_within_15"]
 LABEL_TO_INDEX = {label: index for index, label in enumerate(LABELS)}
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Prepare VitalDB LSTM tensors from the best N ranked dynamic parameters."
     )
@@ -50,7 +60,7 @@ def parse_args() -> argparse.Namespace:
         "--cache-dir", type=Path, default=Path("data/cache/vitaldb_feature_screen")
     )
     parser.add_argument("--output-root", type=Path, default=Path("data/lstm"))
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def validate_args(args: argparse.Namespace) -> None:
@@ -223,8 +233,9 @@ def save_split(
     }
 
 
-def main() -> None:
-    args = parse_args()
+def prepare_corpus(args: argparse.Namespace) -> dict:
+    """Download VitalDB windows and write patient-disjoint NPZ splits plus a manifest."""
+
     validate_args(args)
     parameters, ranking_rows = select_top_parameters(args.ranking_file, args.num_parameters)
     if "MAP" not in parameters:
@@ -321,6 +332,12 @@ def main() -> None:
         "warning": "The ranking came from the exploratory 40-case validation screen. These files are suitable for model development, but their test split is not an unbiased final evaluation of that feature-selection step.",
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest["output_dir"] = str(output_dir)
+    return manifest
+
+
+def main() -> None:
+    manifest = prepare_corpus(parse_args())
     print(json.dumps(manifest, indent=2))
 
 

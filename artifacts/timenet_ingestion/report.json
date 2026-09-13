@@ -1,0 +1,72 @@
+{
+  "challenge_1_selection": {
+    "dataset_id": "vitaldb",
+    "name": "VitalDB Open Dataset",
+    "landing_url": "https://vitaldb.net/dataset/",
+    "validation_ok": true,
+    "target_user": {
+      "role": "Anesthesiologist or anesthesia trainee",
+      "setting": "Operating room, watching a multi-parameter physiologic monitor",
+      "job": "Interpret the last seconds of vitals, anticipate whether mean arterial pressure is about to fall and stay down, and decide whether to reassess the patient and the signal quality.",
+      "decision": "Reassess now versus keep watching. The system must not invent a drug or dose from automatically generated labels.",
+      "constraint": "Only information available at the cutoff time may be shown. Splits must not leak across patients."
+    },
+    "problem": "Intraoperative hypotension is common and associated with organ injury, but bedside alarms fire on the current threshold crossing. The useful question is earlier: given a short observation window, is a *new* sustained MAP < 65 mmHg episode about to start in 3, 5, 10, or 15 minutes?"
+  },
+  "prepared_corpus": "data/lstm/top_5",
+  "prepared_manifest_summary": {
+    "windows": {
+      "train": 1693,
+      "validation": 269,
+      "test": 482
+    },
+    "parameters": [
+      "MAP",
+      "RemiEffectSite",
+      "RR_CO2",
+      "RemiRate",
+      "BIS_SQI"
+    ],
+    "labels": {
+      "0": "within_3",
+      "1": "within_5",
+      "2": "within_10",
+      "3": "within_15",
+      "4": "none_within_15"
+    }
+  },
+  "timenet": {
+    "mode": "build-and-readback",
+    "sourced_dataset_id": "vitaldb",
+    "timenet_version": "0.1.0",
+    "dataset_id": "hackzurich/vitaldb-hypotension-top-5",
+    "dataset_version": "0.1.0",
+    "version_dir": "/home/vm/timelapse/data/timenet_registry/hackzurich/vitaldb-hypotension-top-5/0.1.0",
+    "manifest": "/home/vm/timelapse/data/timenet_registry/hackzurich/vitaldb-hypotension-top-5/0.1.0/manifest.json",
+    "audit": {
+      "records": 2444,
+      "time_series": 24440,
+      "classification_tasks": 2444,
+      "answer_tasks": 2444,
+      "missing_signal_values": 11891,
+      "mask_zero_values": 11891,
+      "subjects_by_split": {
+        "train": 10,
+        "validation": 3,
+        "test": 3
+      },
+      "subject_overlap": {}
+    }
+  },
+  "targets": {
+    "classification_schema": "hypotension_onset_horizon_v1",
+    "labels": [
+      "within_3",
+      "within_5",
+      "within_10",
+      "within_15",
+      "none_within_15"
+    ],
+    "question": "Using only the supplied 20-second signal history and observation masks, predict the tightest available horizon containing the first onset of sustained MAP below 65 mmHg."
+  }
+}

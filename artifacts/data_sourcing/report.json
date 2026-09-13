@@ -1,0 +1,2221 @@
+{
+  "generated_at": "2026-09-12T20:22:57.475889+00:00",
+  "problem": {
+    "id": "intraoperative-hypotension-onset",
+    "title": "Warn before a new intraoperative hypotensive episode becomes sustained",
+    "target_user": {
+      "role": "Anesthesiologist or anesthesia trainee",
+      "setting": "Operating room, watching a multi-parameter physiologic monitor",
+      "job": "Interpret the last seconds of vitals, anticipate whether mean arterial pressure is about to fall and stay down, and decide whether to reassess the patient and the signal quality.",
+      "decision": "Reassess now versus keep watching. The system must not invent a drug or dose from automatically generated labels.",
+      "constraint": "Only information available at the cutoff time may be shown. Splits must not leak across patients."
+    },
+    "problem": "Intraoperative hypotension is common and associated with organ injury, but bedside alarms fire on the current threshold crossing. The useful question is earlier: given a short observation window, is a *new* sustained MAP < 65 mmHg episode about to start in 3, 5, 10, or 15 minutes?",
+    "why_worth_solving": "A short-horizon, patient-held-out forecast from open OR telemetry can be shown to a clinician as INTERPRET / ANTICIPATE / ACT without claiming autonomous treatment. Generated research labels are explicit and auditable.",
+    "language_task": "Map a 20-second multivariate window plus observation masks to a short language answer: tightest onset horizon, or no event within 15 minutes.",
+    "required_signals": [
+      "mean arterial pressure or arterial blood pressure"
+    ],
+    "useful_signals": [
+      "heart rate",
+      "SpO2",
+      "end-tidal CO2",
+      "opioid or hypnotic infusion",
+      "EEG/BIS"
+    ],
+    "constraints": {
+      "must_be_time_series": true,
+      "must_include_arterial_pressure": true,
+      "must_have_subject_or_case_ids": true,
+      "must_be_programmatically_retrievable": true,
+      "must_allow_research_use": true,
+      "credentialed_access_ok": false,
+      "minimum_sampling_hz": 0.5,
+      "preferred_domain": "intraoperative"
+    },
+    "search_queries": [
+      "vitaldb intraoperative vital signs",
+      "intraoperative hypotension arterial blood pressure time series",
+      "anesthesia operating room MAP HR SpO2",
+      "open dataset surgical patients multivariate waveforms",
+      "physionet icu hypotension blood pressure"
+    ],
+    "hub_search_queries": [
+      "vitaldb",
+      "hypotension",
+      "intraoperative",
+      "anesthesia",
+      "physionet",
+      "arterial blood pressure"
+    ]
+  },
+  "selected": {
+    "dataset_id": "vitaldb",
+    "name": "VitalDB Open Dataset",
+    "discovered_by": "seed_catalog",
+    "hard_pass": true,
+    "score": 150,
+    "checks": [
+      {
+        "name": "time_series",
+        "passed": true,
+        "weight": 25,
+        "detail": "Multivariate or regularly sampled physiologic traces are required."
+      },
+      {
+        "name": "arterial_pressure",
+        "passed": true,
+        "weight": 30,
+        "detail": "MAP/ABP is required to label new hypotensive onsets."
+      },
+      {
+        "name": "subject_or_case_ids",
+        "passed": true,
+        "weight": 15,
+        "detail": "Patient or case identity is required for leakage-safe splits."
+      },
+      {
+        "name": "programmatic_access",
+        "passed": true,
+        "weight": 10,
+        "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+      },
+      {
+        "name": "research_license",
+        "passed": true,
+        "weight": 10,
+        "detail": "License recorded as CC BY-NC-SA 4.0."
+      },
+      {
+        "name": "uncredentialed",
+        "passed": true,
+        "weight": 20,
+        "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+      },
+      {
+        "name": "sampling_rate",
+        "passed": true,
+        "weight": 5,
+        "detail": "Sampling 1.0 Hz versus minimum 0.5 Hz."
+      },
+      {
+        "name": "intraoperative_domain",
+        "passed": true,
+        "weight": 20,
+        "detail": "Preferred domain is intraoperative; candidate is intraoperative."
+      },
+      {
+        "name": "supporting_or_signals",
+        "passed": true,
+        "weight": 15,
+        "detail": "6 supporting OR channels beyond pressure."
+      }
+    ],
+    "rejection_reasons": [],
+    "candidate": {
+      "dataset_id": "vitaldb",
+      "name": "VitalDB Open Dataset",
+      "source": "vitaldb",
+      "landing_url": "https://vitaldb.net/dataset/",
+      "access_url": "https://api.vitaldb.net/cases",
+      "license": "CC BY-NC-SA 4.0",
+      "domain": "intraoperative",
+      "description": "High-fidelity multi-parameter vital signs from surgical patients, with case and subject identifiers and a public Python API.",
+      "signals": [
+        "MAP",
+        "ART",
+        "HR",
+        "SpO2",
+        "EtCO2",
+        "BIS",
+        "remifentanil",
+        "propofol"
+      ],
+      "has_arterial_pressure": true,
+      "has_subject_ids": true,
+      "sampling_hz": 1.0,
+      "programmatic_access": true,
+      "credentialed": false,
+      "time_series": true,
+      "notes": "Primary OR telemetry source used by the rest of this repository.",
+      "discovered_by": "seed_catalog",
+      "extra": {}
+    }
+  },
+  "validation": {
+    "dataset_id": "vitaldb",
+    "ok": true,
+    "checks": [
+      {
+        "name": "url_reachable",
+        "passed": true,
+        "detail": "https://api.vitaldb.net/cases -> HTTP 200"
+      },
+      {
+        "name": "has_arterial_pressure",
+        "passed": true,
+        "detail": "Need MAP/ABP to generate the onset target."
+      },
+      {
+        "name": "has_subject_ids",
+        "passed": true,
+        "detail": "Need subject or case ids for patient-disjoint splits."
+      },
+      {
+        "name": "uncredentialed_programmatic_access",
+        "passed": true,
+        "detail": "Must be fetchable during the hackathon without a credentialed DUA."
+      },
+      {
+        "name": "vitaldb_cases_table",
+        "passed": true,
+        "detail": "VitalDB cases CSV header exposes case and subject identifiers."
+      }
+    ]
+  },
+  "assessments": [
+    {
+      "dataset_id": "vitaldb",
+      "name": "VitalDB Open Dataset",
+      "discovered_by": "seed_catalog",
+      "hard_pass": true,
+      "score": 150,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": true,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": true,
+          "weight": 10,
+          "detail": "License recorded as CC BY-NC-SA 4.0."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling 1.0 Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": true,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is intraoperative."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": true,
+          "weight": 15,
+          "detail": "6 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [],
+      "candidate": {
+        "dataset_id": "vitaldb",
+        "name": "VitalDB Open Dataset",
+        "source": "vitaldb",
+        "landing_url": "https://vitaldb.net/dataset/",
+        "access_url": "https://api.vitaldb.net/cases",
+        "license": "CC BY-NC-SA 4.0",
+        "domain": "intraoperative",
+        "description": "High-fidelity multi-parameter vital signs from surgical patients, with case and subject identifiers and a public Python API.",
+        "signals": [
+          "MAP",
+          "ART",
+          "HR",
+          "SpO2",
+          "EtCO2",
+          "BIS",
+          "remifentanil",
+          "propofol"
+        ],
+        "has_arterial_pressure": true,
+        "has_subject_ids": true,
+        "sampling_hz": 1.0,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Primary OR telemetry source used by the rest of this repository.",
+        "discovered_by": "seed_catalog",
+        "extra": {}
+      }
+    },
+    {
+      "dataset_id": "pulsedb",
+      "name": "PulseDB",
+      "discovered_by": "seed_catalog",
+      "hard_pass": false,
+      "score": 115,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": true,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": true,
+          "weight": 10,
+          "detail": "License recorded as custom research terms."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling 125.0 Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is icu-derived-abp-ppg."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "pulsedb",
+        "name": "PulseDB",
+        "source": "github",
+        "landing_url": "https://github.com/pulselabteam/PulseDB",
+        "access_url": "https://github.com/pulselabteam/PulseDB",
+        "license": "custom research terms",
+        "domain": "icu-derived-abp-ppg",
+        "description": "Calibrated PPG\u2013ABP pairs derived from MIMIC and VitalDB.",
+        "signals": [
+          "ABP",
+          "PPG"
+        ],
+        "has_arterial_pressure": true,
+        "has_subject_ids": true,
+        "sampling_hz": 125.0,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Only two channels; no OR context, infusions, or EtCO2.",
+        "discovered_by": "seed_catalog",
+        "extra": {}
+      }
+    },
+    {
+      "dataset_id": "mimic-iii-waveform",
+      "name": "MIMIC-III Waveform Database",
+      "discovered_by": "seed_catalog",
+      "hard_pass": false,
+      "score": 105,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": true,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as Open Data Commons Open Database License v1.0."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling 125.0 Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is icu."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "mimic-iii-waveform",
+        "name": "MIMIC-III Waveform Database",
+        "source": "physionet",
+        "landing_url": "https://physionet.org/content/mimic3wdb/1.0/",
+        "access_url": "https://physionet.org/content/mimic3wdb/1.0/",
+        "license": "Open Data Commons Open Database License v1.0",
+        "domain": "icu",
+        "description": "Bedside ICU waveforms; not intraoperative anesthesia cases.",
+        "signals": [
+          "ART",
+          "PPG",
+          "ECG"
+        ],
+        "has_arterial_pressure": true,
+        "has_subject_ids": true,
+        "sampling_hz": 125.0,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Wrong care setting for the stated OR user; no anesthesia infusions.",
+        "discovered_by": "seed_catalog",
+        "extra": {}
+      }
+    },
+    {
+      "dataset_id": "hf:BenchmarkDatasets/VitalDB",
+      "name": "BenchmarkDatasets/VitalDB",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 105,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": true,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:BenchmarkDatasets/VitalDB",
+        "name": "BenchmarkDatasets/VitalDB",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/BenchmarkDatasets/VitalDB",
+        "access_url": "https://huggingface.co/api/datasets/BenchmarkDatasets/VitalDB",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "BenchmarkDatasets/VitalDB",
+        "signals": [],
+        "has_arterial_pressure": true,
+        "has_subject_ids": true,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'vitaldb'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 28,
+          "tags": [
+            "task_categories:tabular-classification",
+            "license:cdla-permissive-2.0",
+            "size_categories:1k<n<10k",
+            "format:parquet",
+            "modality:tabular",
+            "modality:text",
+            "library:datasets",
+            "library:pandas",
+            "library:polars",
+            "library:mlcroissant",
+            "region:us",
+            "tabular",
+            "ehr",
+            "binary",
+            "biomedical",
+            "benchmark"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hirid",
+      "name": "HiRID",
+      "discovered_by": "seed_catalog",
+      "hard_pass": false,
+      "score": 85,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": true,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as PhysioNet Credentialed Health Data License."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": false,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling 0.5 Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is icu."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "1 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "research_license",
+        "uncredentialed",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hirid",
+        "name": "HiRID",
+        "source": "physionet",
+        "landing_url": "https://physionet.org/content/hirid/1.1.1/",
+        "access_url": "https://physionet.org/content/hirid/1.1.1/",
+        "license": "PhysioNet Credentialed Health Data License",
+        "domain": "icu",
+        "description": "High-resolution ICU time series, including blood pressure.",
+        "signals": [
+          "arterial blood pressure",
+          "heart rate",
+          "SpO2"
+        ],
+        "has_arterial_pressure": true,
+        "has_subject_ids": true,
+        "sampling_hz": 0.5,
+        "programmatic_access": true,
+        "credentialed": true,
+        "time_series": true,
+        "notes": "Relevant physiology, but credentialed ICU access, not open OR data.",
+        "discovered_by": "seed_catalog",
+        "extra": {}
+      }
+    },
+    {
+      "dataset_id": "bidmc-ppg",
+      "name": "BIDMC PPG and Respiration Dataset",
+      "discovered_by": "seed_catalog",
+      "hard_pass": false,
+      "score": 85,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": true,
+          "weight": 10,
+          "detail": "License recorded as ODC-BY 1.0."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling 125.0 Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is icu."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "bidmc-ppg",
+        "name": "BIDMC PPG and Respiration Dataset",
+        "source": "physionet",
+        "landing_url": "https://physionet.org/content/bidmc/1.0.0/",
+        "access_url": "https://physionet.org/content/bidmc/1.0.0/",
+        "license": "ODC-BY 1.0",
+        "domain": "icu",
+        "description": "PPG, impedance respiration, and ECG from critically ill adults.",
+        "signals": [
+          "PPG",
+          "impedance respiration",
+          "ECG"
+        ],
+        "has_arterial_pressure": false,
+        "has_subject_ids": true,
+        "sampling_hz": 125.0,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "No arterial pressure series, so the MAP onset target cannot be built.",
+        "discovered_by": "seed_catalog",
+        "extra": {}
+      }
+    },
+    {
+      "dataset_id": "wesad",
+      "name": "WESAD",
+      "discovered_by": "seed_catalog",
+      "hard_pass": false,
+      "score": 85,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": true,
+          "weight": 10,
+          "detail": "License recorded as UCI terms."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling 64.0 Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is wearable."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "wesad",
+        "name": "WESAD",
+        "source": "uci",
+        "landing_url": "https://archive.ics.uci.edu/dataset/465/wesad+wearable+stress+and+affect+detection",
+        "access_url": "https://archive.ics.uci.edu/dataset/465/wesad+wearable+stress+and+affect+detection",
+        "license": "UCI terms",
+        "domain": "wearable",
+        "description": "Wearable stress and affect detection from laboratory subjects.",
+        "signals": [
+          "ACC",
+          "BVP",
+          "EDA",
+          "TEMP"
+        ],
+        "has_arterial_pressure": false,
+        "has_subject_ids": true,
+        "sampling_hz": 64.0,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Wearable affect, not OR hypotension.",
+        "discovered_by": "seed_catalog",
+        "extra": {}
+      }
+    },
+    {
+      "dataset_id": "cmapss",
+      "name": "NASA C-MAPSS turbofan degradation",
+      "discovered_by": "seed_catalog",
+      "hard_pass": false,
+      "score": 85,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": true,
+          "weight": 10,
+          "detail": "License recorded as public domain."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling 1.0 Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is industrial."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "cmapss",
+        "name": "NASA C-MAPSS turbofan degradation",
+        "source": "nasa",
+        "landing_url": "https://www.nasa.gov/intelligent-systems-division/",
+        "access_url": "https://ti.arc.nasa.gov/tech/dash/groups/pcoe/prognostic-data-repository/",
+        "license": "public domain",
+        "domain": "industrial",
+        "description": "Simulated turbofan run-to-failure sensor traces.",
+        "signals": [
+          "temperature",
+          "pressure",
+          "fan speed"
+        ],
+        "has_arterial_pressure": false,
+        "has_subject_ids": true,
+        "sampling_hz": 1.0,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Industrial remaining-useful-life, not clinical.",
+        "discovered_by": "seed_catalog",
+        "extra": {}
+      }
+    },
+    {
+      "dataset_id": "eicu-crd",
+      "name": "eICU Collaborative Research Database",
+      "discovered_by": "seed_catalog",
+      "hard_pass": false,
+      "score": 80,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": true,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as PhysioNet Credentialed Health Data License."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": false,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": false,
+          "weight": 5,
+          "detail": "Sampling 0.016 Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is icu."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "1 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "research_license",
+        "uncredentialed",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "eicu-crd",
+        "name": "eICU Collaborative Research Database",
+        "source": "physionet",
+        "landing_url": "https://physionet.org/content/eicu-crd/2.0/",
+        "access_url": "https://physionet.org/content/eicu-crd/2.0/",
+        "license": "PhysioNet Credentialed Health Data License",
+        "domain": "icu",
+        "description": "Multi-center ICU clinical database with vital-sign tables.",
+        "signals": [
+          "invasive blood pressure",
+          "heart rate",
+          "SpO2"
+        ],
+        "has_arterial_pressure": true,
+        "has_subject_ids": true,
+        "sampling_hz": 0.016,
+        "programmatic_access": true,
+        "credentialed": true,
+        "time_series": true,
+        "notes": "Credentialed; sparse vitals versus OR high-frequency tracks.",
+        "discovered_by": "seed_catalog",
+        "extra": {}
+      }
+    },
+    {
+      "dataset_id": "hf:stanfordaimlab/anesthesia_literacy",
+      "name": "stanfordaimlab/anesthesia_literacy",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 75,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": true,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:stanfordaimlab/anesthesia_literacy",
+        "name": "stanfordaimlab/anesthesia_literacy",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/stanfordaimlab/anesthesia_literacy",
+        "access_url": "https://huggingface.co/api/datasets/stanfordaimlab/anesthesia_literacy",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "\n\t\n\t\t\n\t\tAnesthesia Literacy Project\n\t\n\nAdaptive patient education using large-language models\n\n\t\n\t\t\n\t\tOverview\n\t\n\nThis study explores the potential of Large Language Models (LLMs) like OpenAI's Generative Pretrained Transformer (GPT) versions 3.5 and 4 to enhance the readability of preoperative patient instructions, aiming to align them with the American Medical Association's recommendation of a 6th-grade reading level. Acknowledging that nearly 40% of U.S. adults possess basic or below basic\u2026 See the full description on the dataset page: https://huggingface.co/datasets/stanfordaimlab/anesthesia_literacy.",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": true,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'anesthesia'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 94,
+          "tags": [
+            "task_categories:summarization",
+            "task_categories:text-generation",
+            "language:en",
+            "license:cc-by-nc-sa-4.0",
+            "size_categories:n<1k",
+            "format:imagefolder",
+            "modality:image",
+            "modality:text",
+            "library:datasets",
+            "library:mlcroissant",
+            "doi:10.57967/hf/2155",
+            "region:us",
+            "medical"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:leon-cvetkovski/anesthesia-coding-31.5k",
+      "name": "leon-cvetkovski/anesthesia-coding-31.5k",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:leon-cvetkovski/anesthesia-coding-31.5k",
+        "name": "leon-cvetkovski/anesthesia-coding-31.5k",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/leon-cvetkovski/anesthesia-coding-31.5k",
+        "access_url": "https://huggingface.co/api/datasets/leon-cvetkovski/anesthesia-coding-31.5k",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "leon-cvetkovski/anesthesia-coding-31.5k",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'anesthesia'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 2,
+          "tags": [
+            "size_categories:10k<n<100k",
+            "format:csv",
+            "modality:text",
+            "library:datasets",
+            "library:pandas",
+            "library:mlcroissant",
+            "library:polars",
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:leon-cvetkovski/anesthesia-coding-just-train",
+      "name": "leon-cvetkovski/anesthesia-coding-just-train",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:leon-cvetkovski/anesthesia-coding-just-train",
+        "name": "leon-cvetkovski/anesthesia-coding-just-train",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/leon-cvetkovski/anesthesia-coding-just-train",
+        "access_url": "https://huggingface.co/api/datasets/leon-cvetkovski/anesthesia-coding-just-train",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "leon-cvetkovski/anesthesia-coding-just-train",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'anesthesia'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 1,
+          "tags": [
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:ClarusC64/clinical-5node-airway-buf-lag-cpl-anesthesia-airway-compromise-v0.1",
+      "name": "ClarusC64/clinical-5node-airway-buf-lag-cpl-anesthesia-airway-compromise-v0.1",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:ClarusC64/clinical-5node-airway-buf-lag-cpl-anesthesia-airway-compromise-v0.1",
+        "name": "ClarusC64/clinical-5node-airway-buf-lag-cpl-anesthesia-airway-compromise-v0.1",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/ClarusC64/clinical-5node-airway-buf-lag-cpl-anesthesia-airway-compromise-v0.1",
+        "access_url": "https://huggingface.co/api/datasets/ClarusC64/clinical-5node-airway-buf-lag-cpl-anesthesia-airway-compromise-v0.1",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "import csv\nimport json\nimport sys\nfrom typing import Dict, List\nTARGET_NAME = \"cascade_state\"\nLABEL_COL = f\"label_{TARGET_NAME}\"\nPRED_COL_CANDIDATES = [\"prediction\", \"pred\", \"y_pred\", \"model_pred\"]\ndef _to_int(x: str) -> int:\n    x = (x or \"\").strip()\n    if x == \"\":\n        raise ValueError(\"Empty value\")\n    v = float(x)\n    return 1 if v >= 0.5 else 0\ndef safe_div(n: float, d: float) -> float:\n    return n / d if d else 0.0\ndef confusion(y_true: List[int], y_pred: List[int]) -> Dict[str\u2026 See the full description on the dataset page: https://huggingface.co/datasets/ClarusC64/clinical-5node-airway-buf-lag-cpl-anesthesia-airway-compromise-v0.1.",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'anesthesia'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 2,
+          "tags": [
+            "size_categories:n<1k",
+            "format:csv",
+            "modality:tabular",
+            "modality:text",
+            "library:datasets",
+            "library:pandas",
+            "library:polars",
+            "library:mlcroissant",
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:JasiekKaczmarczyk/physionet-preprocessed",
+      "name": "JasiekKaczmarczyk/physionet-preprocessed",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:JasiekKaczmarczyk/physionet-preprocessed",
+        "name": "JasiekKaczmarczyk/physionet-preprocessed",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/JasiekKaczmarczyk/physionet-preprocessed",
+        "access_url": "https://huggingface.co/api/datasets/JasiekKaczmarczyk/physionet-preprocessed",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "JasiekKaczmarczyk/physionet-preprocessed",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'physionet'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 13,
+          "tags": [
+            "task_categories:token-classification",
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:ronaldvandenbroek/physionet-sleep-data",
+      "name": "ronaldvandenbroek/physionet-sleep-data",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:ronaldvandenbroek/physionet-sleep-data",
+        "name": "ronaldvandenbroek/physionet-sleep-data",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/ronaldvandenbroek/physionet-sleep-data",
+        "access_url": "https://huggingface.co/api/datasets/ronaldvandenbroek/physionet-sleep-data",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "ronaldvandenbroek/physionet-sleep-data",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'physionet'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 65,
+          "tags": [
+            "license:odc-by",
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:dhruvmalhotr/physionet_1dof",
+      "name": "dhruvmalhotr/physionet_1dof",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:dhruvmalhotr/physionet_1dof",
+        "name": "dhruvmalhotr/physionet_1dof",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/dhruvmalhotr/physionet_1dof",
+        "access_url": "https://huggingface.co/api/datasets/dhruvmalhotr/physionet_1dof",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "dhruvmalhotr/physionet_1dof",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'physionet'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 4,
+          "tags": [
+            "license:apache-2.0",
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:miguellmartins/circor-digiscope-physionet22",
+      "name": "miguellmartins/circor-digiscope-physionet22",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:miguellmartins/circor-digiscope-physionet22",
+        "name": "miguellmartins/circor-digiscope-physionet22",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/miguellmartins/circor-digiscope-physionet22",
+        "access_url": "https://huggingface.co/api/datasets/miguellmartins/circor-digiscope-physionet22",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "\n\t\n\t\n\t\n\t\tlicense: mit\ndataset_info:\n  features:\n  - name: filename\n    dtype: string\n  - name: recording\n    dtype:\n      audio:\n        sampling_rate: 4000\n  - name: recording_label\n    dtype:\n      class_label:\n        names:\n          '0': '0'\n          '1': '1'\n          '2': '2'\n  - name: heart_state_labels\n    sequence: int32\n  splits:\n  - name: train\n    num_bytes: 982613659.952\n    num_examples: 3363\n  download_size: 304201131\n  dataset_size: 982613659.952\nconfigs:\n- config_name:\u2026 See the full description on the dataset page: https://huggingface.co/datasets/miguellmartins/circor-digiscope-physionet22.",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'physionet'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 21,
+          "tags": [
+            "size_categories:1k<n<10k",
+            "format:parquet",
+            "modality:audio",
+            "modality:text",
+            "library:datasets",
+            "library:dask",
+            "library:mlcroissant",
+            "library:polars",
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:miguellmartins/circor-digiscope-physionet22-processed",
+      "name": "miguellmartins/circor-digiscope-physionet22-processed",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:miguellmartins/circor-digiscope-physionet22-processed",
+        "name": "miguellmartins/circor-digiscope-physionet22-processed",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/miguellmartins/circor-digiscope-physionet22-processed",
+        "access_url": "https://huggingface.co/api/datasets/miguellmartins/circor-digiscope-physionet22-processed",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "miguellmartins/circor-digiscope-physionet22-processed",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'physionet'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 4,
+          "tags": [
+            "size_categories:1k<n<10k",
+            "format:parquet",
+            "modality:audio",
+            "modality:text",
+            "library:datasets",
+            "library:dask",
+            "library:mlcroissant",
+            "library:polars",
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:miguellmartins/circor-digiscope-physionet22-tutorial",
+      "name": "miguellmartins/circor-digiscope-physionet22-tutorial",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:miguellmartins/circor-digiscope-physionet22-tutorial",
+        "name": "miguellmartins/circor-digiscope-physionet22-tutorial",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/miguellmartins/circor-digiscope-physionet22-tutorial",
+        "access_url": "https://huggingface.co/api/datasets/miguellmartins/circor-digiscope-physionet22-tutorial",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "miguellmartins/circor-digiscope-physionet22-tutorial",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'physionet'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 4,
+          "tags": [
+            "size_categories:1k<n<10k",
+            "format:parquet",
+            "modality:audio",
+            "modality:text",
+            "library:datasets",
+            "library:pandas",
+            "library:mlcroissant",
+            "library:polars",
+            "region:us"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:disi-unibo-nlp/physionet-deid-i2b2-2014",
+      "name": "disi-unibo-nlp/physionet-deid-i2b2-2014",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 60,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": true,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:disi-unibo-nlp/physionet-deid-i2b2-2014",
+        "name": "disi-unibo-nlp/physionet-deid-i2b2-2014",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/disi-unibo-nlp/physionet-deid-i2b2-2014",
+        "access_url": "https://huggingface.co/api/datasets/disi-unibo-nlp/physionet-deid-i2b2-2014",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "The De-identification dataset contains medical text records with Named Entity Recognition (NER) annotations.\nThe dataset is processed to split records into individual sentences while preserving entity annotations.\nEach sentence is tokenized and annotated in IOB format for training NER models.",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": false,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'physionet'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 68,
+          "tags": [
+            "task_categories:token-classification",
+            "language:en",
+            "region:us",
+            "ner",
+            "bioner",
+            "pii"
+          ]
+        }
+      }
+    },
+    {
+      "dataset_id": "hf:kushalps/physionet_6class",
+      "name": "kushalps/physionet_6class",
+      "discovered_by": "huggingface_hub",
+      "hard_pass": false,
+      "score": 40,
+      "checks": [
+        {
+          "name": "time_series",
+          "passed": true,
+          "weight": 25,
+          "detail": "Multivariate or regularly sampled physiologic traces are required."
+        },
+        {
+          "name": "arterial_pressure",
+          "passed": false,
+          "weight": 30,
+          "detail": "MAP/ABP is required to label new hypotensive onsets."
+        },
+        {
+          "name": "subject_or_case_ids",
+          "passed": false,
+          "weight": 15,
+          "detail": "Patient or case identity is required for leakage-safe splits."
+        },
+        {
+          "name": "programmatic_access",
+          "passed": true,
+          "weight": 10,
+          "detail": "Need a public API or file endpoint the rest of the repo can fetch."
+        },
+        {
+          "name": "research_license",
+          "passed": false,
+          "weight": 10,
+          "detail": "License recorded as unknown."
+        },
+        {
+          "name": "uncredentialed",
+          "passed": false,
+          "weight": 20,
+          "detail": "Hackathon training needs data we can retrieve without a PhysioNet DUA wait."
+        },
+        {
+          "name": "sampling_rate",
+          "passed": true,
+          "weight": 5,
+          "detail": "Sampling None Hz versus minimum 0.5 Hz."
+        },
+        {
+          "name": "intraoperative_domain",
+          "passed": false,
+          "weight": 20,
+          "detail": "Preferred domain is intraoperative; candidate is medical."
+        },
+        {
+          "name": "supporting_or_signals",
+          "passed": false,
+          "weight": 0,
+          "detail": "0 supporting OR channels beyond pressure."
+        }
+      ],
+      "rejection_reasons": [
+        "arterial_pressure",
+        "subject_or_case_ids",
+        "research_license",
+        "uncredentialed",
+        "intraoperative_domain"
+      ],
+      "candidate": {
+        "dataset_id": "hf:kushalps/physionet_6class",
+        "name": "kushalps/physionet_6class",
+        "source": "huggingface",
+        "landing_url": "https://huggingface.co/datasets/kushalps/physionet_6class",
+        "access_url": "https://huggingface.co/api/datasets/kushalps/physionet_6class",
+        "license": "unknown",
+        "domain": "medical",
+        "description": "\n\t\n\t\t\n\t\tDataset Card for \"physionet_6class\"\n\t\n\nMore Information needed\n",
+        "signals": [],
+        "has_arterial_pressure": false,
+        "has_subject_ids": false,
+        "sampling_hz": null,
+        "programmatic_access": true,
+        "credentialed": true,
+        "time_series": true,
+        "notes": "Hugging Face Hub search for 'physionet'.",
+        "discovered_by": "huggingface_hub",
+        "extra": {
+          "downloads": 9,
+          "tags": [
+            "size_categories:1k<n<10k",
+            "format:parquet",
+            "modality:image",
+            "library:datasets",
+            "library:pandas",
+            "library:mlcroissant",
+            "library:polars",
+            "region:us"
+          ]
+        }
+      }
+    }
+  ],
+  "rounds": [
+    {
+      "excluded": [],
+      "considered": "vitaldb",
+      "score": 150,
+      "hard_pass": true,
+      "validation_ok": true,
+      "detail": "url_reachable=pass; has_arterial_pressure=pass; has_subject_ids=pass; uncredentialed_programmatic_access=pass; vitaldb_cases_table=pass"
+    }
+  ],
+  "search_errors": []
+}

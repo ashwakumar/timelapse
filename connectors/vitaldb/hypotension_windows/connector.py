@@ -4,6 +4,9 @@ The connector consumes the immutable ``manifest.json`` and split NPZ files made
 by ``scripts/prepare_lstm_dataset.py``.  It performs no network I/O.  The
 future-derived label appears only in TimeNet tasks; signal and annotation inputs
 come exclusively from the 20-second history and non-target provenance.
+
+Questions, class names, and the INTERPRET/ANTICIPATE/ACT rationale are defined
+in ``tasks.yaml`` beside this module and mirrored in the constants below.
 """
 
 from __future__ import annotations
@@ -28,6 +31,8 @@ from timenet.types import (
     TimeSeriesSpec,
     ureg,
 )
+
+from .targets import ANSWER_TEXT, QA_PROMPT
 
 
 TIMENET_VERSION = "0.1.0"
@@ -54,20 +59,6 @@ PARAMETER_UNITS = {
     "SpO2": "percent",
     "HR": "1/min",
 }
-
-ANSWER_TEXT = {
-    "within_3": "hypotension within 3 minutes",
-    "within_5": "hypotension within 5 minutes",
-    "within_10": "hypotension within 10 minutes",
-    "within_15": "hypotension within 15 minutes",
-    "none_within_15": "no hypotension within 15 minutes",
-}
-
-QA_PROMPT = (
-    "Using only the supplied 20-second signal history and observation masks, predict the tightest "
-    "available horizon containing the first onset of sustained MAP below 65 mmHg. Do not infer a "
-    "causal mechanism or recommend a drug or dose."
-)
 
 _SOURCE = DataSource(
     data_source_type="open-clinical-dataset",

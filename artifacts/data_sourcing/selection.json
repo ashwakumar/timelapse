@@ -1,0 +1,14 @@
+{
+  "dataset_id": "vitaldb",
+  "name": "VitalDB Open Dataset",
+  "landing_url": "https://vitaldb.net/dataset/",
+  "validation_ok": true,
+  "target_user": {
+    "role": "Anesthesiologist or anesthesia trainee",
+    "setting": "Operating room, watching a multi-parameter physiologic monitor",
+    "job": "Interpret the last seconds of vitals, anticipate whether mean arterial pressure is about to fall and stay down, and decide whether to reassess the patient and the signal quality.",
+    "decision": "Reassess now versus keep watching. The system must not invent a drug or dose from automatically generated labels.",
+    "constraint": "Only information available at the cutoff time may be shown. Splits must not leak across patients."
+  },
+  "problem": "Intraoperative hypotension is common and associated with organ injury, but bedside alarms fire on the current threshold crossing. The useful question is earlier: given a short observation window, is a *new* sustained MAP < 65 mmHg episode about to start in 3, 5, 10, or 15 minutes?"
+}
