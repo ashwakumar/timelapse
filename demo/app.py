@@ -207,7 +207,10 @@ QUESTION_PRESETS = {
     "✍️ Custom Question (Free-Text Input)": "",
 }
 
+st.divider()
 with st.container(border=True):
+    st.subheader("Operational questions")
+    st.caption("Choose a preset or write a question, then press Enter to generate an answer.")
     q_sel_col, q_input_col = st.columns([1, 2], vertical_alignment="bottom")
     with q_sel_col:
         selected_preset = st.selectbox(
@@ -220,12 +223,25 @@ with st.container(border=True):
     if selected_preset == "✍️ Custom Question (Free-Text Input)":
         default_text = "Is the High-Pressure Compressor (Station 30) exhibiting aerodynamic tip clearance loss?"
 
-    with q_input_col:
+    with q_input_col, st.form("operational_question"):
         user_prompt = st.text_input(
             "💬 Active Operational Question (Prompt to AeroGuard TSLM):",
             value=default_text,
+            key=f"question_{selected_preset}",
             help="This text is passed directly into the language model along with the continuous sensor telemetry!",
         )
+
+        question_btn = st.form_submit_button(
+            "Enter", type="primary",
+            disabled=selected_model_type != "AeroGuard TSLM" or predictor is None,
+        )
+    if selected_model_type != "AeroGuard TSLM" or predictor is None:
+        st.caption("Select an available AeroGuard TSLM model to answer questions.")
+    if question_btn and not user_prompt.strip():
+        st.warning("Write a question before pressing Enter.")
+        question_btn = False
+
+st.divider()
 
 with st.expander("Advanced"):
     settings_col, data_col = st.columns(2)
@@ -272,7 +288,7 @@ def compute_assessment(
     try:
         if model_choice == "AeroGuard TSLM" and pred_engine is not None:
             prediction = float(pred_engine.predict_rul(record["series"]))
-            rationale = "Click 'Run assessment' to generate tailored diagnostics for this question."
+            rationale = "Press 'Enter' in Operational questions to generate tailored diagnostics."
         elif model_choice == "Classical ML (XGBoost)" and xgb_eng is not None:
             features, _ = extract_tabular_features([record])
             prediction = float(xgb_eng.predict(features)[0])
@@ -315,11 +331,11 @@ def compute_assessment(
 
 
 # Keep all views on the same assessment when route or chart controls rerun the app.
-assessment_key = (2, selected_unit, selected_cycle, selected_model_type, user_prompt)
+assessment_key = (3, selected_unit, selected_cycle, selected_model_type)
 saved = st.session_state.get("assessment_result")
-if saved is None or saved["key"] != assessment_key or run_btn:
+if saved is None or saved["key"] != assessment_key or run_btn or question_btn:
     active_eval = compute_assessment(selected_model_type, active_record, predictor, xgb_baseline, prompt=user_prompt)
-    if run_btn and selected_model_type == "AeroGuard TSLM" and active_eval["pred_rul"] is not None:
+    if question_btn and selected_model_type == "AeroGuard TSLM" and active_eval["pred_rul"] is not None:
         with st.spinner("Generating multimodal assessment…"):
             try:
                 assessment = predictor.assess_record(active_record, prompt=user_prompt, max_new_tokens=128)
@@ -332,6 +348,7 @@ if saved is None or saved["key"] != assessment_key or run_btn:
                     cot_diagnostics=assessment.cot_diagnostics,
                     estimate_source="Model prediction",
                     rationale_source="Generated assessment",
+                    question=user_prompt.strip(),
                     component_diagnosis=assessment.component_diagnosis
                     or isolate_component_fault(active_record["series"], assessment.predicted_rul),
                 )
@@ -340,6 +357,8 @@ if saved is None or saved["key"] != assessment_key or run_btn:
     st.session_state["assessment_result"] = {"key": assessment_key, "value": active_eval}
 else:
     active_eval = saved["value"]
+
+answered_question = active_eval.get("question", "No question submitted")
 
 true_rul = active_eval["true_rul"]
 pred_rul = active_eval["pred_rul"]
@@ -466,9 +485,9 @@ with tab_main:
         with st.container(border=True):
             st.subheader("Assessment summary")
             st.caption(
-                f"{active_eval['rationale_source']} · Question: {user_prompt[:65]}..."
-                if len(user_prompt) > 65
-                else f"{active_eval['rationale_source']} · Question: {user_prompt}"
+                f"{active_eval['rationale_source']} · Question: {answered_question[:65]}..."
+                if len(answered_question) > 65
+                else f"{active_eval['rationale_source']} · Question: {answered_question}"
             )
             st.markdown(active_eval["cot_diagnostics"])
         with st.container(border=True):

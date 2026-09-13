@@ -12,7 +12,7 @@ __pycache__/
 # Build products and generated run outputs
 build/
 dist/
-artifacts/
+#artifacts/
 
 archive/models/
 
