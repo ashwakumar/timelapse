@@ -13,7 +13,7 @@ __pycache__/
 build/
 dist/
 artifacts/
-models/
+
 archive/models/
 
 # Downloaded / reproducible data; keep data/README.md tracked

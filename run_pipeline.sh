@@ -13,8 +13,8 @@
 set -euo pipefail
 
 # Default hyperparameters matching production training
-EPOCHS=${EPOCHS:-3}
-BATCH_SIZE=${BATCH_SIZE:-16}
+EPOCHS=${EPOCHS:-100}
+BATCH_SIZE=${BATCH_SIZE:-32}
 LR=${LR:-2e-4}
 SAVE_DIR=${SAVE_DIR:-"models/aeroguard_tslm"}
 
