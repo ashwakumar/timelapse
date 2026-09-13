@@ -46,3 +46,22 @@ def list_runs(root: Path = ROOT) -> list[dict]:
             }
         )
     return rows
+
+
+def resolve_run(run_id: str | None, root: Path = ROOT) -> dict:
+    rows = list_runs(root)
+    if not rows:
+        raise RuntimeError("No training runs listed in artifacts/runs/catalog.json")
+    if run_id:
+        for row in rows:
+            if row["id"] == run_id:
+                return row
+        raise RuntimeError(f"Unknown run id: {run_id}")
+    for preferred in ("50-epochs", "50-epochs-b", "3-epochs"):
+        for row in rows:
+            if row["id"] == preferred and row.get("has_model"):
+                return row
+    for row in rows:
+        if row.get("has_model"):
+            return row
+    return rows[0]

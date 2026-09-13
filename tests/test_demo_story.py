@@ -23,8 +23,10 @@ class DemoRunsTest(unittest.TestCase):
 
         runs = {row["id"]: row for row in list_runs(Path("."))}
         self.assertTrue(runs["3-epochs"]["ready"])
-        self.assertFalse(runs["50-epochs"]["ready"])
+        self.assertTrue(runs["50-epochs"]["ready"])
+        self.assertTrue(runs["50-epochs"]["has_model"])
         self.assertGreater(runs["3-epochs"]["passes"], 0)
+        self.assertEqual(runs["50-epochs"]["passes"], 50)
 
 
 if __name__ == "__main__":

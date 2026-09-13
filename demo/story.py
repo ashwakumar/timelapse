@@ -16,8 +16,8 @@ def build_story(root: Path = ROOT) -> dict:
     selection = _read_json(root / "artifacts/data_sourcing/selection.json") or {}
     ingest = _read_json(root / "artifacts/timenet_ingestion/report.json") or {}
     tslm = _read_json(root / "artifacts/tslm_evaluation/report.json") or {}
-    metrics = _read_json(root / "artifacts/run-opentslm-3ep/metrics.json") or []
-    split = _read_json(root / "artifacts/run-opentslm-3ep/split_audit.json") or {}
+    metrics = _read_json(root / "artifacts/run-opentslm-50ep/metrics.json") or []
+    split = _read_json(root / "artifacts/run-opentslm-50ep/split_audit.json") or {}
     user = selection.get("target_user") or {}
     models = tslm.get("models") or {}
     language = tslm.get("language_examples") or []
@@ -51,14 +51,14 @@ def build_story(root: Path = ROOT) -> dict:
             "language_example": language[0] if language else None,
         },
         "opentslm_run": {
-            "checkpoint": "artifacts/run-opentslm-3ep/best.pt",
-            "epochs": 3,
+            "checkpoint": "artifacts/run-opentslm-50ep/best.pt",
+            "epochs": 50,
             "metrics": metrics,
             "split_passed": ((split.get("disjoint_verification") or {}).get("passed")),
             "val_sample_ids": split.get("val_sample_ids") or [],
             "note": (
-                "best.pt is OpenTSLM-SP LoRA after 3 epochs on the synthetic "
-                "four-channel fixture in data/surgical_telemetry, not on VitalDB windows."
+                "best.pt is the trained OpenTSLM-SP LoRA after 50 epochs on the "
+                "synthetic four-channel fixture in data/surgical_telemetry."
             ),
         },
         "how_it_helps": (

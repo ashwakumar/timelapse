@@ -45,7 +45,8 @@ class DemoHandler(BaseHTTPRequestHandler):
 
             query = parse_qs(parsed.query)
             index = int(query.get("index", ["0"])[0])
-            self._send(*_json_bytes(sample_input(index)))
+            run_id = query.get("run", [None])[0]
+            self._send(*_json_bytes(sample_input(index, run_id)))
             return
         self._send(404, b"not found", "text/plain")
 
@@ -58,7 +59,11 @@ class DemoHandler(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(length) or b"{}")
         from demo.infer import generate
 
-        self._send(*_json_bytes(generate(int(body.get("index", 0)))))
+        self._send(
+            *_json_bytes(
+                generate(int(body.get("index", 0)), body.get("run") or body.get("run_id"))
+            )
+        )
 
     def _send(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
@@ -83,7 +88,7 @@ def main() -> None:
     if args.preload:
         from demo.infer import load_runtime
 
-        print("[demo] loading best.pt …", flush=True)
+        print("[demo] loading trained best.pt …", flush=True)
         load_runtime()
         print("[demo] model ready", flush=True)
     server = ThreadingHTTPServer((args.host, args.port), DemoHandler)

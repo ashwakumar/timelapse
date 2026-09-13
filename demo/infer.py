@@ -1,20 +1,18 @@
-"""Load the 3-epoch OpenTSLM checkpoint and generate on held-out fixture samples."""
+"""Load an OpenTSLM best.pt checkpoint and generate on held-out fixture samples."""
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-RUN = ROOT / "artifacts/run-opentslm-3ep"
 MANIFEST = ROOT / "data/surgical_telemetry/manifest.jsonl"
 
-_model = None
-_dataset = None
-_records_by_id: dict[str, dict[str, Any]] = {}
+_runtimes: dict[str, dict[str, Any]] = {}
 
 
 def _device() -> str:
@@ -23,34 +21,67 @@ def _device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def load_runtime() -> None:
-    global _model, _dataset, _records_by_id
-    if _model is not None:
-        return
+def _parse_sections(text: str) -> dict[str, str]:
+    parts = {"Observation": "", "Rationale": "", "Recommendation": ""}
+    matches = list(
+        re.finditer(
+            r"(Observation|Rationale|Recommendation)\s*:\s*",
+            text,
+            flags=re.IGNORECASE,
+        )
+    )
+    for i, match in enumerate(matches):
+        key = match.group(1).title()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        parts[key] = text[match.end() : end].strip()
+    if not any(parts.values()) and text.strip():
+        parts["Observation"] = text.strip()
+    return parts
+
+
+def load_runtime(run_id: str | None = None) -> dict[str, Any]:
+    from demo.runs import resolve_run
     from training.data import ChannelNormalizer, TelemetryDataset, load_manifest
     from training.model import load_for_inference
 
-    audit = json.loads((RUN / "split_audit.json").read_text(encoding="utf-8"))
+    run = resolve_run(run_id, ROOT)
+    cache_key = str(run["id"])
+    if cache_key in _runtimes:
+        return _runtimes[cache_key]
+
+    folder = ROOT / run["folder"]
+    checkpoint = folder / "best.pt"
+    if not checkpoint.is_file():
+        raise RuntimeError(f"Missing trained checkpoint: {checkpoint}")
+
+    audit = json.loads((folder / "split_audit.json").read_text(encoding="utf-8"))
     val_ids = set(audit["val_sample_ids"])
     records = load_manifest(MANIFEST, require_device_id=True, allow_case_only=False)
     held_out = [record for record in records if record["sample_id"] in val_ids]
     if not held_out:
         raise RuntimeError("No held-out samples found in split_audit.json")
-    normalizer = ChannelNormalizer.load(RUN / "normalization.json")
-    _model = load_for_inference(RUN / "best.pt", _device())
+    normalizer = ChannelNormalizer.load(folder / "normalization.json")
+    model = load_for_inference(checkpoint, _device())
     eos = ""
-    if hasattr(_model, "tokenizer") and getattr(_model.tokenizer, "eos_token", None):
-        eos = _model.tokenizer.eos_token or ""
-    _dataset = TelemetryDataset(
+    if hasattr(model, "tokenizer") and getattr(model.tokenizer, "eos_token", None):
+        eos = model.tokenizer.eos_token or ""
+    dataset = TelemetryDataset(
         held_out, normalizer, max_signal_length=300, eos_token=eos
     )
-    _records_by_id = {record["sample_id"]: record for record in held_out}
+    runtime = {
+        "run": run,
+        "model": model,
+        "dataset": dataset,
+        "checkpoint": str(checkpoint),
+    }
+    _runtimes[cache_key] = runtime
+    return runtime
 
 
-def list_samples() -> list[dict[str, Any]]:
-    load_runtime()
+def list_samples(run_id: str | None = None) -> list[dict[str, Any]]:
+    runtime = load_runtime(run_id)
     samples = []
-    for index, record in enumerate(_dataset.records):
+    for index, record in enumerate(runtime["dataset"].records):
         samples.append(
             {
                 "index": index,
@@ -64,9 +95,9 @@ def list_samples() -> list[dict[str, Any]]:
     return samples
 
 
-def sample_input(index: int) -> dict[str, Any]:
-    load_runtime()
-    record = _dataset.records[index]
+def sample_input(index: int, run_id: str | None = None) -> dict[str, Any]:
+    runtime = load_runtime(run_id)
+    record = runtime["dataset"].records[index]
     signal = np.load(record["signal_path"], allow_pickle=False)
     if signal.shape[1] > 300:
         signal = signal[:, -300:]
@@ -74,7 +105,6 @@ def sample_input(index: int) -> dict[str, Any]:
     series = {}
     for i, name in enumerate(channels):
         values = signal[i].astype(np.float32)
-        # downsample for the browser chart
         step = max(1, values.size // 120)
         series[name] = [
             None if not np.isfinite(v) else float(v) for v in values[::step].tolist()
@@ -92,17 +122,28 @@ def sample_input(index: int) -> dict[str, Any]:
         "series": series,
         "gold_target": record["target"],
         "held_out": True,
+        "run_id": runtime["run"]["id"],
     }
 
 
-def generate(index: int, max_new_tokens: int = 160) -> dict[str, Any]:
-    load_runtime()
-    item = _dataset[index]
-    texts = _model.generate([item], max_new_tokens=max_new_tokens, do_sample=False)
+def generate(
+    index: int, run_id: str | None = None, max_new_tokens: int = 160
+) -> dict[str, Any]:
+    runtime = load_runtime(run_id)
+    item = runtime["dataset"][index]
+    texts = runtime["model"].generate(
+        [item], max_new_tokens=max_new_tokens, do_sample=False
+    )
+    output = texts[0].strip()
     return {
         "sample_id": item["sample_id"],
-        "model_output": texts[0].strip(),
-        "gold_target": _dataset.records[index]["target"],
-        "checkpoint": str(RUN / "best.pt"),
+        "model_output": output,
+        "sections": _parse_sections(output),
+        "gold_target": runtime["dataset"].records[index]["target"],
+        "checkpoint": runtime["checkpoint"],
+        "run_id": runtime["run"]["id"],
+        "title": runtime["run"]["title"],
+        "subtitle": runtime["run"]["subtitle"],
+        "passes": runtime["run"]["passes"],
         "device": _device(),
     }
