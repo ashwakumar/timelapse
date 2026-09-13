@@ -1,6 +1,6 @@
 {
   "configuration": {
-    "evaluated_at": "2026-09-13T06:52:13.558504+00:00",
+    "evaluated_at": "2026-09-13T07:48:28.871596+00:00",
     "data_path": "data/processed/windows.jsonl",
     "model_dir": "models/aeroguard_tslm",
     "chronos_model": "amazon/chronos-t5-tiny",
@@ -138,29 +138,13 @@
       "MAE": 59.08826999333005,
       "NASA_Score": 129270812.08423558
     },
-    "XGBoost": {
-      "evaluated_windows": 806,
-      "failed_windows": 0,
-      "coverage": 1.0,
-      "RMSE": 45.9085234928861,
-      "MAE": 31.020721435546875,
-      "NASA_Score": 5602498.5
-    },
     "Chronos + Ridge": {
       "evaluated_windows": 806,
       "failed_windows": 0,
       "coverage": 1.0,
-      "RMSE": 53.93326315920445,
-      "MAE": 40.12058639526367,
-      "NASA_Score": 17218386.0
-    },
-    "AeroGuard TSLM": {
-      "evaluated_windows": 806,
-      "failed_windows": 0,
-      "coverage": 1.0,
-      "RMSE": 70.0849145986836,
-      "MAE": 53.74842667113759,
-      "NASA_Score": 68695379.96569584
+      "RMSE": 53.9332628217755,
+      "MAE": 40.12058658931155,
+      "NASA_Score": 17218388.323200714
     },
     "Text-only LM": {
       "evaluated_windows": 0,
@@ -169,6 +153,14 @@
       "RMSE": null,
       "MAE": null,
       "NASA_Score": null
+    },
+    "AeroGuard TSLM": {
+      "evaluated_windows": 806,
+      "failed_windows": 0,
+      "coverage": 1.0,
+      "RMSE": 51.10817110312643,
+      "MAE": 39.813670400714976,
+      "NASA_Score": 2616356.271811491
     }
   }
 }

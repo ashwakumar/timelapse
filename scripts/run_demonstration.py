@@ -75,19 +75,30 @@ def run_demonstration() -> None:
     mid_record = unit_84[len(unit_84) // 3]
     crit_record = unit_84[-1]
 
-    for label, rec in [("CASE A: MID-LIFE OPERATION", mid_record), ("CASE B: NEAR-FAILURE TERMINAL OPERATION", crit_record)]:
-        s4 = rec["series"]["sensor_4"]   # T50 Exhaust Gas Temp
-        s11 = rec["series"]["sensor_11"] # Ps30 HPC Static Pressure
-        s15 = rec["series"]["sensor_15"] # BPR Bypass Ratio
-        s9 = rec["series"]["sensor_9"]   # Nc Core Speed
+    for label, rec in [
+        ("CASE A: MID-LIFE OPERATION", mid_record),
+        ("CASE B: NEAR-FAILURE TERMINAL OPERATION", crit_record),
+    ]:
+        s4 = rec["series"]["sensor_4"]  # T50 Exhaust Gas Temp
+        s11 = rec["series"]["sensor_11"]  # Ps30 HPC Static Pressure
+        s15 = rec["series"]["sensor_15"]  # BPR Bypass Ratio
+        s9 = rec["series"]["sensor_9"]  # Nc Core Speed
 
         print(f"\n[{label}] — Engine Unit #{rec['unit_number']} at Flight Cycle {rec['cycle']}")
-        print(f"  • Observation Window: Cycles {rec['cycle']-29} to {rec['cycle']} (30 operational cycles)")
-        print(f"  • T50 (LPT Exhaust Gas Temp): Start={s4[0]:.2f}°R -> End={s4[-1]:.2f}°R (Drift: {s4[-1]-s4[0]:+.2f}°R)")
-        print(f"  • Ps30 (HPC Static Pressure): Start={s11[0]:.2f} psia -> End={s11[-1]:.2f} psia (Drift: {s11[-1]-s11[0]:+.2f} psia)")
-        print(f"  • BPR (Bypass Ratio):        Start={s15[0]:.4f} -> End={s15[-1]:.4f} (Drift: {s15[-1]-s15[0]:+.4f})")
+        print(
+            f"  • Observation Window: Cycles {rec['cycle'] - 29} to {rec['cycle']} (30 operational cycles)"
+        )
+        print(
+            f"  • T50 (LPT Exhaust Gas Temp): Start={s4[0]:.2f}°R -> End={s4[-1]:.2f}°R (Drift: {s4[-1] - s4[0]:+.2f}°R)"
+        )
+        print(
+            f"  • Ps30 (HPC Static Pressure): Start={s11[0]:.2f} psia -> End={s11[-1]:.2f} psia (Drift: {s11[-1] - s11[0]:+.2f} psia)"
+        )
+        print(
+            f"  • BPR (Bypass Ratio):        Start={s15[0]:.4f} -> End={s15[-1]:.4f} (Drift: {s15[-1] - s15[0]:+.4f})"
+        )
         print(f"  • Nc (Core Rotational Speed): Start={s9[0]:.2f} rpm -> End={s9[-1]:.2f} rpm")
-        print(f"  • Prompt Passed to TSLM: \"{rec['prompt']}\"")
+        print(f'  • Prompt Passed to TSLM: "{rec["prompt"]}"')
 
     # ---------------------------------------------------------
     # PART 3: MODEL INFERENCE & REAL OUTPUTS
@@ -95,7 +106,9 @@ def run_demonstration() -> None:
     print("\n" + "─" * 80)
     print("📌 PART 3: REAL MODEL OUTPUTS & INFERENCE EXECUTION")
     print("─" * 80)
-    print("Initializing AeroGuardPredictor and loading trained SmolLM-135M + LoRA + Patch Encoder...")
+    print(
+        "Initializing AeroGuardPredictor and loading trained SmolLM-135M + LoRA + Patch Encoder..."
+    )
 
     try:
         predictor = AeroGuardPredictor(model_dir="models/aeroguard_tslm")
@@ -104,7 +117,10 @@ def run_demonstration() -> None:
         print(f"⚠️ Could not load trained model ({exc}). Running simulated demonstration.")
         return
 
-    for label, rec in [("CASE A: MID-LIFE OPERATION", mid_record), ("CASE B: NEAR-FAILURE TERMINAL OPERATION", crit_record)]:
+    for label, rec in [
+        ("CASE A: MID-LIFE OPERATION", mid_record),
+        ("CASE B: NEAR-FAILURE TERMINAL OPERATION", crit_record),
+    ]:
         assessment = predictor.assess_record(rec, max_new_tokens=96)
         print(f"┌─ {label} (Unit #{assessment.unit_number}, Cycle {assessment.cycle})")
         print(f"│  • Predicted RUL:     {assessment.predicted_rul:.1f} cycles")
@@ -117,13 +133,22 @@ def run_demonstration() -> None:
             cd = assessment.component_diagnosis
             print(f"│  • Fault Location:    {cd.station_name}")
             print(f"│  • Failing Assembly:  {cd.module_name} ({cd.fault_mode})")
-            print(f"│  • Isolation Score:   {cd.confidence_score * 100:.1f}% Physics Coupling")
-            print(f"│  • MRO Work Order:    {cd.maintenance_order} | {cd.borescope_inspection_task}")
+            confidence = (
+                f"{cd.confidence_score * 100:.1f}% Physics Coupling"
+                if cd.confidence_score is not None
+                else "Unavailable"
+            )
+            print(f"│  • Isolation Score:   {confidence}")
+            print(
+                f"│  • MRO Work Order:    {cd.maintenance_order} | {cd.borescope_inspection_task}"
+            )
             print("│  • Prescribed Line-Replaceable Units (LRUs):")
             for p in cd.replacement_parts:
-                print(f"│     - [{p.replacement_status:<17}] {p.part_name:<42} (OEM P/N: {p.oem_part_number})")
+                print(
+                    f"│     - [{p.replacement_status:<17}] {p.part_name:<42} (OEM P/N: {p.oem_part_number})"
+                )
         print("│  • Model Generated Chain-of-Thought (CoT) Diagnostic:")
-        print(f"│    \"{assessment.cot_diagnostics}\"")
+        print(f'│    "{assessment.cot_diagnostics}"')
         print("└" + "─" * 78)
 
     # ---------------------------------------------------------

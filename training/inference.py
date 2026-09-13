@@ -135,9 +135,13 @@ class AeroGuardPredictor:
         raw_series = record["series"]
         tensor_window = self.normalize_window(raw_series)
 
-        prompt_text = prompt if (prompt and prompt.strip()) else record.get(
-            "prompt",
-            "Analyze turbofan sensor degradation and determine remaining useful life.",
+        prompt_text = (
+            prompt
+            if (prompt and prompt.strip())
+            else record.get(
+                "prompt",
+                "Analyze turbofan sensor degradation and determine remaining useful life.",
+            )
         )
 
         with torch.no_grad():
@@ -152,79 +156,71 @@ class AeroGuardPredictor:
         # Run component fault isolation and replacement BOM generation
         component_diag = isolate_component_fault(raw_series, pred_rul)
 
-        # Determine health status band
-        if pred_rul <= 30.0:
-            band = "CRITICAL_WEAR"
-            directive = (
-                f"Ground engine immediately. RUL bounded at {pred_rul:.0f} cycles. "
-                "Issue Maintenance Directive for High-Pressure Compressor overhaul."
-            )
-        elif pred_rul <= 75.0:
-            band = "ELEVATED_WEAR"
-            directive = (
-                f"Schedule borescope inspection within {max(1, int(pred_rul - 10))} cycles. "
-                "Stage-2 HPC blade clearance widening detected."
-            )
-        else:
-            band = "NOMINAL_ENVELOPE"
-            directive = (
-                "Nominal flight envelope. Telemetry trends exhibit stable thermal/pressure margins. "
-                "Cleared for all scheduled commercial flight segments."
-            )
+        band = (
+            "CRITICAL_WEAR"
+            if pred_rul <= 30
+            else ("ELEVATED_WEAR" if pred_rul <= 75 else "NOMINAL_ENVELOPE")
+        )
+        directive = component_diag.action_summary
 
         # Calculate observed drifts on key sensors (e.g. T50, Ps30, BPR)
         drifts = {}
         for ch in ["sensor_4", "sensor_11", "sensor_15"]:
-            if ch in raw_series:
+            if len(raw_series.get(ch, [])) >= 2:
                 drifts[ch] = float(raw_series[ch][-1] - raw_series[ch][0])
 
-        # Tailor Chain-of-Thought diagnostic response to specific operational query intents
+        # Keep deterministic maintenance responses grounded in available observations.
         p_lower = prompt_text.lower()
-        if any(k in p_lower for k in ["part", "oem", "component", "station", "failing", "sub-assembly", "bom"]):
-            primary_part = component_diag.replacement_parts[0] if component_diag.replacement_parts else None
-            part_str = f"{primary_part.part_name} (OEM: {primary_part.oem_part_number})" if primary_part else "CFM56-HPC-RB25"
+        if any(
+            k in p_lower
+            for k in [
+                "part",
+                "oem",
+                "component",
+                "station",
+                "failing",
+                "sub-assembly",
+                "bom",
+                "thermodynamic",
+                "mechanism",
+                "physics",
+                "divergence",
+                "t50",
+                "ps30",
+                "anomaly",
+                "faa",
+                "easa",
+                "audit",
+                "compliance",
+                "borescope",
+                "maintenance",
+            ]
+        ):
             cot_response = (
-                f"1. COMPONENT FAULT LOCALIZATION: Telemetry confirms degradation isolated to {component_diag.station_id} ({component_diag.module_name}). "
-                f"Thermodynamic aerothermal divergence confirms {component_diag.degradation_mechanism}.\n\n"
-                f"2. PRESCRIBED REPLACEMENT BOM: Issue MRO Work Order {component_diag.maintenance_order} under {component_diag.borescope_inspection_task}. "
-                f"Required replacement: {part_str} (Urgency: {component_diag.replacement_urgency}).\n\n"
-                f"3. TELEMETRY COUPLING: {'; '.join(component_diag.thermodynamic_evidence[:2])}."
+                "Rule-based observation summary (not a generated diagnosis).\n\n"
+                + "\n".join(component_diag.thermodynamic_evidence)
+                + f"\n\nSensor-rule match: {component_diag.sensor_rule_match}. "
+                "The rule checks T50 increase >2°R and Ps30 decrease >0.15 psia. "
+                "It does not provide a fault probability or identify a failed part.\n\n"
+                + f"Illustrative suggestion based on predicted RUL ({pred_rul:.1f} cycles): {directive} "
+                "Inspection findings, maintenance history, and applicable approved documentation are needed. "
+                "No verified parts, task cards, inventory, or airworthiness determination is available."
             )
-        elif any(k in p_lower for k in ["route", "etops", "dispatch", "jfk", "lhr", "fly", "destination", "divert"]):
-            if pred_rul < 100:
-                cot_response = (
-                    f"1. ROUTE DISPATCH DECISION: ⛔ DISPATCH REJECTED for Long-Haul / Trans-Atlantic ETOPS (Safety Margin < 100 Cycles). "
-                    f"Current projected RUL is {pred_rul:.1f} cycles, insufficient for extended overwater operations.\n\n"
-                    f"2. SAFETY ASSESSMENT: Elevated exhaust gas temperature surge indicates depleted EGT thermal margin. "
-                    f"High probability of in-flight thrust roll-back under single-engine diversion profiles.\n\n"
-                    f"3. RECOMMENDED REROUTE: Divert / reassign aircraft to short Regional Spoke (e.g. ORD ──► DTW, <15 cycle requirement) "
-                    f"to terminate directly at heavy maintenance overhaul hub."
-                )
-            else:
-                cot_response = (
-                    f"1. ROUTE DISPATCH DECISION: 🟢 CLEARED FOR DISPATCH. Projected RUL of {pred_rul:.1f} cycles exceeds "
-                    f"minimum ETOPS threshold (100 cycles).\n\n"
-                    f"2. THERMAL ENVELOPE: Normal temperature and compression margins verified across all 14 channels.\n\n"
-                    f"3. OPERATIONAL DIRECTIVE: Clear for scheduled commercial flight segment. Continue routine line telemetry logging."
-                )
-        elif any(k in p_lower for k in ["thermodynamic", "mechanism", "physics", "divergence", "t50", "ps30", "anomaly"]):
+        elif any(
+            k in p_lower
+            for k in ["route", "etops", "dispatch", "jfk", "lhr", "fly", "destination", "divert"]
+        ):
             cot_response = (
-                f"1. THERMODYNAMIC MECHANISM: Degradation is governed by High-Pressure Compressor (Station 30) boundary layer separation "
-                f"and rotor tip clearance erosion. As effective aerodynamic flow area decreases, static pressure Ps30 drops.\n\n"
-                f"2. THERMAL RUNAWAY COUPLING: To sustain commanded thrust, the FADEC combustor schedule increases fuel flow ratio (Phi). "
-                f"This forces exhaust gas temperature (T50 / EGT) to surge, leading to steady thermal margin depletion.\n\n"
-                f"3. MULTI-CHANNEL DERIVATIVES: Observed drift indicates coupled aerodynamic clearance loss across HPC stages 2 through 5."
-            )
-        elif any(k in p_lower for k in ["faa", "easa", "audit", "compliance", "part 145", "borescope"]):
-            audit_status = "MANDATORY HOLD (Form 8130-3 Hold)" if pred_rul <= 75 else "SATISFACTORY AIRWORTHINESS RELEASE"
-            cot_response = (
-                f"1. AIRWORTHINESS AUDIT STATUS: [{audit_status}]. Evaluated in accordance with FAA Part 145 / EASA Part-M continuing airworthiness standards.\n\n"
-                f"2. MANDATORY TASK CARDS: Execute Borescope Inspection standard {component_diag.borescope_inspection_task}. "
-                f"Verify Stage 5 HPC vane leading edge chipping within allowable limits (< 0.08 in).\n\n"
-                f"3. COMPLIANCE DISPOSITION: {'Withhold commercial airworthiness release until borescope sign-off.' if pred_rul <= 75 else 'Asset meets standard commercial flight envelope release requirements.'}"
+                f"The model estimates {pred_rul:.1f} remaining cycles. "
+                "The route simulator compares this estimate with illustrative cycle thresholds only. "
+                "It does not determine dispatch clearance or airworthiness."
             )
         else:
-            cot_response = generated_text.strip() if generated_text.strip() else directive
+            cot_response = (
+                "Model-generated explanation (unverified):\n\n" + generated_text.strip()
+                if generated_text.strip()
+                else "Rule-based suggestion: " + directive
+            )
 
         return AeroGuardAssessment(
             unit_number=int(record.get("unit_number", 0)),

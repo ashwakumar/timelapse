@@ -2,14 +2,23 @@
 
 > **Multimodal Time-Series Language Model for Turbofan Predictive Maintenance & Aerothermal Prognostics**
 
+[![Team: TimeLapse](https://img.shields.io/badge/Team-TimeLapse-7C3AED.svg?style=for-the-badge)](#)
+[![EHL Hackathon Zurich](https://img.shields.io/badge/EHL_Hackathon-Zurich_2026-F97316.svg?style=for-the-badge)](https://github.com/aionic-labs)
+[![Track: Aionic Labs x ETH](https://img.shields.io/badge/Track-Aionic%20%C3%97%20ETH%20ASL-06B6D4.svg?style=for-the-badge)](https://github.com/aionic-labs)
+
+### 👥 Team TimeLapse — EHL Hackathon Zurich 2026
+* **Ashwani Kumar**
+* **Siddhant Tilekar**
+* **Vid Tominec**
+* **Marlene Moerig**
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Track: Aionic Labs x ETH](https://img.shields.io/badge/Hackathon-Aionic%20%C3%97%20ETH%20ASL-orange.svg)](https://github.com/aionic-labs)
 
 AeroGuard TSLM bridges continuous multivariate jet engine telemetry directly into the embedding space of a causal language model (`SmolLM-135M-Instruct`) via **Prefix Token Fusion**. In a single forward pass, it simultaneously forecasts numerical **Remaining Useful Life (RUL)** with sub-millisecond bounding and synthesizes actionable, physically grounded **Chain-of-Thought (CoT) engineering diagnostics**.
 
-Developed for the European Hackathon League (*Give AI a Sense of Time*) using the NASA C-MAPSS FD001 dataset and Aionic's TimeNet connector framework.
+Developed for the **European Hackathon League (EHL Hackathon Zurich)** (*Give AI a Sense of Time*) using the NASA C-MAPSS FD001 dataset and Aionic's TimeNet connector framework.
 
 ---
 
@@ -170,7 +179,6 @@ Evaluated strictly on **held-out test engines (Engines 81–100)** with zero dat
 | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
 | **AeroGuard TSLM (Ours)** | 14 Continuous Sensor Patches + Prompt | **7.94** | **6.31** | **686.2** | **High** (Causal aerothermal CoT) | **Yes** (Station 30 HPC Rotor Blades & Stator Vanes) |
 | **Baseline: Text-Only LLM** | Serialized ASCII Number Tables | 21.11 | 16.81 | 15,197.2 | **Unreliable** (Tabular blindness) | **No** (Fabricated / hallucinated parts) |
-| **Classical ML (XGBoost)** | 70 Tabular Summary Stats | 45.91 | 31.02 | 5,602,498.5 | **None** (Black-box numerical scalar) | **No** (Cannot identify failing parts) |
 | **Amazon Chronos (T5 Foundation)** | 14 Discretized Time-Series Tokens | 53.93 | 40.12 | 17,218,386.0 | **None** (Pure numerical foundation model) | **No** (Univariate tokens only) |
 | **Static Schedule (Legacy)** | Flight Cycle Counter Only | 58.14 | 46.20 | 8,912,400.0 | **None** (Blind calendar threshold) | **No** (Ignores all telemetry) |
 
@@ -188,7 +196,25 @@ uv run streamlit run demo/app.py
 *Access at: `http://localhost:8501`*
 
 ### 2. Run Baseline Benchmark Evaluation
-Evaluates all models on held-out test windows and writes `artifacts/benchmark_results.json`:
+Prepare the baseline models once (requires processed windows and downloads pretrained backbones):
+```bash
+uv run python -m training.train_baselines
+```
+This trains a Ridge RUL head on frozen Chronos embeddings using only training engines.
+The text-only model is saved locally as a frozen pretrained baseline, without fine-tuning.
+Artifacts are stored in `models/baselines`; repeat runs skip preparation unless `--force` is supplied.
+
+The benchmark and GUI share `training.baseline_inference.BaselinePredictor` and load local saved
+weights without training or downloading. Restart the GUI or use **Advanced → Reload model checkpoint**
+after preparing models. Chronos and text-only predictions then appear in the model selector.
+
+For a single saved-model prediction:
+```bash
+uv run python -m training.baseline_inference --model "Chronos + Ridge" --unit 84 --cycle 30
+```
+Use an engine/cycle present in your processed dataset. The other model name is `Text-only LM`.
+
+Evaluates all models on held-out test windows using saved weights and writes `artifacts/benchmark_results.json`:
 ```bash
 uv run python -m training.evaluate_baselines --model-dir models/aeroguard_tslm
 ```
@@ -270,6 +296,11 @@ For the comprehensive scientific, physical, and architectural breakdown, see **[
 │   └── processed/windows.jsonl          # 3,663 preprocessed 30-cycle telemetry windows
 ├── packages/
 │   └── aeroguard-connectors/            # Reusable TimeNet dataset connector for C-MAPSS
+├── notebooks/
+│   ├── 01_raw_telemetry_exploration.ipynb   # Raw C-MAPSS data inspection & sensor drift curves
+│   ├── 02_windowing_and_dataset_loader.ipynb# 30-cycle windowing & PyTorch loader pre-check
+│   ├── 03_model_inference_precheck.ipynb    # Model architecture, weights & inference pre-check
+│   └── 04_generate_slide_plots.ipynb        # Visual presentation plots generator (benchmark, drift)
 ├── scripts/
 │   ├── run_pipeline.py                  # Master 5-stage pipeline orchestrator
 │   ├── agentic_data_sourcing.py         # Problem definition & raw data validation
@@ -291,6 +322,7 @@ For the comprehensive scientific, physical, and architectural breakdown, see **[
 ├── models/
 │   └── aeroguard_tslm/                  # Trained model artifacts & configs
 └── artifacts/
+    ├── slide_plots/                     # Exported presentation slide figures (HTML & standalone)
     ├── dataset_sourcing_dossier.json    # Verified data sourcing dossier
     └── benchmark_results.json           # Evaluation metrics on Engines 81-100
 ```

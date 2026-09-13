@@ -1,6 +1,7 @@
 # ✈️ AeroGuard TSLM: Comprehensive Repository & Technical Architecture Dossier
 
-> **European Hackathon League | Temporal AI Challenge (Zurich 2026)**  
+> **European Hackathon League (EHL Hackathon Zurich 2026)**  
+> **Team**: TimeLapse (Ashwani Kumar, Siddhant Tilekar, Vid Tominec, Marlene Moerig)  
 > **Track**: Aionic Labs × ETH Agentic Systems Lab  
 > **Project**: AeroGuard TSLM (Multimodal Time-Series Language Model for Turbofan Predictive Maintenance)  
 > **Dataset**: NASA C-MAPSS FD001 (`nasa/cmapss`)  
@@ -33,13 +34,10 @@ Modern high-bypass turbofan engines generate rich multi-sensor telemetry during 
 1. **Static Calendar Limits (Legacy Rule-Based)**:
    - Engines are overhauled at fixed flight cycle intervals (e.g. every 3,000 cycles) regardless of actual wear.
    - *Failure Mode*: Prematurely retires healthy multi-million-dollar turbine components or completely misses rapid thermal wear induced by aggressive climb profiles.
-2. **Classical ML (XGBoost / Random Forest)**:
-   - Predicts an isolated scalar Remaining Useful Life (RUL) number from static summary statistics.
-   - *Failure Mode*: Pure black box. Zero explanation of *why* the engine is failing, *which* physical component is deteriorating, or *what* maintenance actions are required. Fails FAA and EASA airworthiness auditability requirements.
-3. **Pure Time-Series Foundation Models (Amazon Chronos T5)**:
+2. **Pure Time-Series Foundation Models (Amazon Chronos T5)**:
    - Uses univariate tokenization into quantized discrete bins.
    - *Failure Mode*: Blind to multivariate thermodynamic cross-coupling (e.g., simultaneous exhaust gas surge and compressor pressure drop), resulting in high error (53.93 RMSE) and zero natural language diagnostic output.
-4. **Standard Text-Only LLMs (Prompting with Raw Arrays)**:
+3. **Standard Text-Only LLMs (Prompting with Raw Arrays)**:
    - Prompting LLMs with serialized ASCII numeric tables or rolling averages.
    - *Failure Mode*: Tabular blindness, token inefficiency, and severe hallucinations of nonexistent part numbers and trends.
 
@@ -287,7 +285,6 @@ All models were evaluated strictly on the **806 unseen test windows** of Engines
 | :--- | :--- | :---: | :---: | :---: | :--- | :--- |
 | **AeroGuard TSLM (Ours)** | 14 Continuous Sensor Patches + Text | **7.94** | **6.31** | **686.2** | **High** (Causal CoT) | **Yes** (Station 30 HPC Blades) |
 | **Baseline: Text-Only LLM** | Serialized ASCII Number Tables | 21.11 | 16.81 | 15,197.2 | **Unreliable** | **No** (Hallucinates part numbers) |
-| **Classical ML (XGBoost)** | 70 Tabular Summary Stats | 45.91 | 31.02 | 5,602,498.5 | **None** (Black Box) | **No** (Pure scalar number) |
 | **Amazon Chronos (T5)** | 14 Discretized Time-Series Tokens | 53.93 | 40.12 | 17,218,386.0 | **None** (Foundation Model)| **No** (Univariate only) |
 | **Static Calendar Schedule** | Flight Cycle Counter Only | 58.14 | 46.20 | 8,912,400.0 | **None** (Blind Threshold) | **No** (Ignores all sensors) |
 
@@ -300,7 +297,7 @@ The NASA C-MAPSS scoring metric heavily penalizes late predictions (which lead t
 $$d = \hat{y} - y$$
 $$S = \sum_{i=1}^{N} \begin{cases} e^{-d_i / 13} - 1 & \text{if } d_i < 0 \text{ (early prediction)} \\ e^{d_i / 10} - 1 & \text{if } d_i \ge 0 \text{ (late prediction)} \end{cases}$$
 
-AeroGuard TSLM achieves a NASA Score of **686.2**, outperforming classical ML and text baselines by multiple orders of magnitude.
+AeroGuard TSLM achieves a NASA Score of **686.2**, outperforming Chronos and text baselines by multiple orders of magnitude.
 
 ---
 
@@ -321,7 +318,7 @@ The Streamlit operations dashboard ([`demo/app.py`](demo/app.py)) provides a mod
 4. **Live Streaming Chain-of-Thought**:
    - Autoregressive text streaming of diagnostic rationales with real-time token generation.
 5. **Side-by-Side Model Comparison**:
-   - Compares AeroGuard against XGBoost and Text-Only LLMs on the exact same telemetry window.
+   - Compares AeroGuard against Chronos and Text-Only LLMs on the exact same telemetry window.
 
 ---
 
@@ -352,6 +349,11 @@ timelapse/
 │               ├── dataset.yaml         # TimeNet dataset manifest card
 │               └── tests/
 │                   └── test_connector.py# Unit tests with synthetic fixtures
+├── notebooks/
+│   ├── 01_raw_telemetry_exploration.ipynb   # Raw C-MAPSS data inspection & sensor drift curves
+│   ├── 02_windowing_and_dataset_loader.ipynb# 30-cycle windowing & PyTorch loader pre-check
+│   ├── 03_model_inference_precheck.ipynb    # Model architecture, weights & inference pre-check
+│   └── 04_generate_slide_plots.ipynb        # Visual presentation plots generator (benchmark, drift)
 ├── scripts/
 │   ├── run_pipeline.py                  # Master 5-stage pipeline orchestrator
 │   ├── agentic_data_sourcing.py         # Problem definition & raw data validation
@@ -381,6 +383,7 @@ timelapse/
 │       ├── lora_adapters/               # PEFT LoRA adapter weights for SmolLM-135M
 │       └── tokenizer/                   # Tokenizer vocabulary and special tokens
 ├── artifacts/
+│   ├── slide_plots/                     # Exported presentation slide figures (HTML & standalone)
 │   ├── dataset_sourcing_dossier.json    # Verified data sourcing dossier
 │   ├── dataset_sourcing_dossier.md      # Human-readable sourcing summary
 │   ├── benchmark_results.json           # Evaluation metrics on Engines 81-100

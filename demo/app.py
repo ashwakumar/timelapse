@@ -1,4 +1,4 @@
-"""AeroGuard engine diagnostics, component details, route simulation, and evaluation."""
+"""AeroGuard engine diagnostics, component details, and evaluation."""
 
 from __future__ import annotations
 
@@ -9,9 +9,8 @@ from typing import Any
 import numpy as np
 import plotly.graph_objects as go
 import streamlit as st
-import xgboost as xgb
 
-from training.evaluate_baselines import extract_tabular_features
+from training.baseline_inference import BaselinePredictor
 from training.fault_isolation import ComponentFaultDiagnosis, isolate_component_fault
 from training.inference import AeroGuardPredictor
 
@@ -32,6 +31,7 @@ st.markdown(
     h2, h3, h4 { letter-spacing: -0.02em; }
     [data-testid="stVerticalBlockBorderWrapper"] > div { border-radius: 10px; }
     [data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; }
+    [data-testid="stTextArea"] textarea { white-space: pre-wrap; overflow-wrap: anywhere; }
     .stButton > button { border-radius: 7px; font-weight: 600; box-shadow: none; }
     .stButton > button[kind="primary"] { background: #5AB8AC; color: #111418; border: 0; }
     .stButton > button[kind="primary"]:hover { background: #80CABE; color: #111418; }
@@ -53,17 +53,12 @@ st.markdown(
         background: #1B2026; border: 1px solid #30373F;
         border-radius: 8px; padding: 18px; margin-bottom: 12px; line-height: 1.6;
     }
-    .route-cleared, .route-restricted {
-        border-radius: 8px; padding: 18px; line-height: 1.7; border: 1px solid;
-    }
     .status-badge-unavailable {
         display: inline-block; padding: 5px 10px; border-radius: 6px;
         background: #242C33; color: #B4BDC7; border: 1px solid #46515D;
     }
     .station-legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
     .station-legend span { padding: 5px 10px; border: 1px solid currentColor; border-radius: 6px; font-size: 0.85rem; }
-    .route-cleared { background: #1D302A; color: #93C9AA; border-color: #3B6050; }
-    .route-restricted { background: #322126; color: #F0A4AA; border-color: #71424A; }
     @media (max-width: 768px) {
         .block-container { padding: 1rem; }
         h1 { font-size: 2rem; }
@@ -99,30 +94,23 @@ def get_predictor() -> AeroGuardPredictor | None:
         return None
 
 
+BASELINE_NAMES = {
+    "Amazon Chronos": "Chronos + Ridge",
+    "Text-Only LLM": "Text-only LM",
+}
+
+
 @st.cache_resource
-def get_xgboost_model(records: list[dict[str, Any]]) -> Any:
-    """Train and cache the classical XGBoost baseline on training records."""
-    train_records = [r for r in records if r.get("split") == "train"]
-    if not train_records:
-        return None
-    X_train, y_train = extract_tabular_features(train_records)
-    model = xgb.XGBRegressor(
-        n_estimators=100,
-        max_depth=5,
-        learning_rate=0.08,
-        random_state=42,
-        tree_method="hist",
-    )
+def get_baseline_model(name: str) -> tuple[Any, str | None]:
+    """Load saved weights once; never train models inside the GUI."""
     try:
-        model.fit(X_train, y_train)
-    except Exception:
-        return None
-    return model
+        return BaselinePredictor(name), None
+    except Exception as exc:
+        return None, str(exc)
 
 
 records = load_processed_windows()
 predictor = get_predictor()
-xgb_baseline = get_xgboost_model(records)
 
 # Filter to held-out test units (Engines 81-100)
 test_records = [r for r in records if r["split"] == "test"]
@@ -164,32 +152,34 @@ with model_col:
         [
             "AeroGuard TSLM",
             "Amazon Chronos",
-            "Classical ML (XGBoost)",
             "Text-Only LLM",
             "Static Schedule",
         ],
     )
+baseline_model, baseline_error = (
+    get_baseline_model(BASELINE_NAMES[selected_model_type])
+    if selected_model_type in BASELINE_NAMES else (None, None)
+)
 with run_col:
     model_available = (
         (selected_model_type == "AeroGuard TSLM" and predictor is not None)
-        or (selected_model_type == "Classical ML (XGBoost)" and xgb_baseline is not None)
+        or (selected_model_type in BASELINE_NAMES and baseline_model is not None)
         or selected_model_type == "Static Schedule"
     )
     run_btn = st.button(
         "Run assessment", type="primary", width="stretch", disabled=not model_available
     )
 
+if baseline_error:
+    st.error(f"{selected_model_type}: {baseline_error}")
+
 active_record = next(r for r in unit_records if r["cycle"] == selected_cycle)
 
 # ================= INTERACTIVE OPERATIONAL QUERY SELECTOR =================
 QUESTION_PRESETS = {
-    "🛠️ Component Fault & Part Prescription": (
-        "Based on the thermodynamic coupling across the 14 sensors, identify which engine station is degrading, "
-        "pinpoint the failing sub-assembly, and prescribe the OEM replacement part number."
-    ),
-    "✈️ Flight Route & ETOPS Dispatch Clearance": (
-        "Evaluate if this aircraft is airworthy for a 6-cycle Trans-Atlantic ETOPS flight (JFK to LHR), "
-        "or if route restriction / diversion to a maintenance overhaul hub is required."
+    "🛠️ Component observations": (
+        "Summarize the measured sensor changes and the limitations of component identification. "
+        "What further evidence would be needed before choosing replacement parts?"
     ),
     "🔬 Thermodynamic Root-Cause Mechanism": (
         "Explain the thermodynamic mechanism causing the observed divergence between Station 50 (T50 EGT) "
@@ -200,48 +190,12 @@ QUESTION_PRESETS = {
         "estimate remaining useful life in cycles, assign a RUL band (CRITICAL: 0–30, WARNING: 31–75, NORMAL: above 75), "
         "and summarize the observed sensor changes."
     ),
-    "📋 FAA Part 145 Airworthiness Audit": (
-        "Generate an FAA Part 145 compliant airworthiness audit summary, inspection hold status, "
-        "and required borescope inspection task cards for this engine."
+    "📋 Maintenance review preparation": (
+        "Summarize the available evidence for a maintenance review "
+        "and identify missing inspection and maintenance information."
     ),
-    "✍️ Custom Question (Free-Text Input)": "",
+    "Custom question": "",
 }
-
-st.divider()
-with st.container(border=True):
-    st.subheader("Operational questions")
-    st.caption("Choose a preset or write a question, then press Enter to generate an answer.")
-    q_sel_col, q_input_col = st.columns([1, 2], vertical_alignment="bottom")
-    with q_sel_col:
-        selected_preset = st.selectbox(
-            "🎯 Operational Query Preset",
-            list(QUESTION_PRESETS.keys()),
-            index=0,
-            help="Select an operational question preset, or choose Custom Question to write your own.",
-        )
-    default_text = QUESTION_PRESETS[selected_preset]
-    if selected_preset == "✍️ Custom Question (Free-Text Input)":
-        default_text = "Is the High-Pressure Compressor (Station 30) exhibiting aerodynamic tip clearance loss?"
-
-    with q_input_col, st.form("operational_question"):
-        user_prompt = st.text_input(
-            "💬 Active Operational Question (Prompt to AeroGuard TSLM):",
-            value=default_text,
-            key=f"question_{selected_preset}",
-            help="This text is passed directly into the language model along with the continuous sensor telemetry!",
-        )
-
-        question_btn = st.form_submit_button(
-            "Enter", type="primary",
-            disabled=selected_model_type != "AeroGuard TSLM" or predictor is None,
-        )
-    if selected_model_type != "AeroGuard TSLM" or predictor is None:
-        st.caption("Select an available AeroGuard TSLM model to answer questions.")
-    if question_btn and not user_prompt.strip():
-        st.warning("Write a question before pressing Enter.")
-        question_btn = False
-
-st.divider()
 
 with st.expander("Advanced"):
     settings_col, data_col = st.columns(2)
@@ -251,6 +205,7 @@ with st.expander("Advanced"):
         if st.button("Reload model checkpoint"):
             st.cache_resource.clear()
             st.session_state.pop("assessment_result", None)
+            st.session_state.pop("question_result", None)
             st.rerun()
     with data_col:
         st.caption("Dataset: NASA C-MAPSS FD001 · 14 sensor channels · 30-cycle window")
@@ -280,7 +235,7 @@ def compute_assessment(
     model_choice: str,
     record: dict[str, Any],
     pred_engine: AeroGuardPredictor | None,
-    xgb_eng: Any,
+    baseline_engine: Any,
     prompt: str = "",
 ) -> dict[str, Any]:
     """Use real inference or the explicit schedule rule; never reference-label fallbacks."""
@@ -288,13 +243,12 @@ def compute_assessment(
     try:
         if model_choice == "AeroGuard TSLM" and pred_engine is not None:
             prediction = float(pred_engine.predict_rul(record["series"]))
-            rationale = "Press 'Enter' in Operational questions to generate tailored diagnostics."
-        elif model_choice == "Classical ML (XGBoost)" and xgb_eng is not None:
-            features, _ = extract_tabular_features([record])
-            prediction = float(xgb_eng.predict(features)[0])
+            rationale = "Assessment summary unavailable."
+        elif model_choice in BASELINE_NAMES and baseline_engine is not None:
+            prediction = float(baseline_engine.predict([record])[0])
             rationale = (
-                f"XGBoost estimated {prediction:.1f} cycles from summary statistics. "
-                "⚠️ Tabular ML limitation: XGBoost is a black-box numerical scalar and cannot interpret language questions or identify failing parts."
+                f"{model_choice} estimated {prediction:.1f} remaining cycles using saved weights. "
+                "This baseline provides a RUL estimate without component diagnosis."
             )
         elif model_choice == "Static Schedule":
             prediction = float(max(0, 120 - (int(record["cycle"]) % 120)))
@@ -330,15 +284,15 @@ def compute_assessment(
     return result
 
 
-# Keep all views on the same assessment when route or chart controls rerun the app.
-assessment_key = (3, selected_unit, selected_cycle, selected_model_type)
+# Keep all views on the same assessment when chart controls rerun the app.
+assessment_key = (6, selected_unit, selected_cycle, selected_model_type)
 saved = st.session_state.get("assessment_result")
-if saved is None or saved["key"] != assessment_key or run_btn or question_btn:
-    active_eval = compute_assessment(selected_model_type, active_record, predictor, xgb_baseline, prompt=user_prompt)
-    if question_btn and selected_model_type == "AeroGuard TSLM" and active_eval["pred_rul"] is not None:
+if saved is None or saved["key"] != assessment_key or run_btn:
+    active_eval = compute_assessment(selected_model_type, active_record, predictor, baseline_model)
+    if selected_model_type == "AeroGuard TSLM" and active_eval["pred_rul"] is not None:
         with st.spinner("Generating multimodal assessment…"):
             try:
-                assessment = predictor.assess_record(active_record, prompt=user_prompt, max_new_tokens=128)
+                assessment = predictor.assess_record(active_record, max_new_tokens=128)
                 if not np.isfinite(assessment.predicted_rul):
                     raise ValueError("Invalid model prediction")
                 active_eval.update(
@@ -348,7 +302,6 @@ if saved is None or saved["key"] != assessment_key or run_btn or question_btn:
                     cot_diagnostics=assessment.cot_diagnostics,
                     estimate_source="Model prediction",
                     rationale_source="Generated assessment",
-                    question=user_prompt.strip(),
                     component_diagnosis=assessment.component_diagnosis
                     or isolate_component_fault(active_record["series"], assessment.predicted_rul),
                 )
@@ -358,17 +311,15 @@ if saved is None or saved["key"] != assessment_key or run_btn or question_btn:
 else:
     active_eval = saved["value"]
 
-answered_question = active_eval.get("question", "No question submitted")
-
 true_rul = active_eval["true_rul"]
 pred_rul = active_eval["pred_rul"]
 diagnosis = active_eval.get("component_diagnosis")
 status_label = (
     "Model unavailable"
     if pred_rul is None
-    else "Critical wear"
+    else "Critical"
     if pred_rul <= 30
-    else ("Elevated wear" if pred_rul <= 75 else "Nominal")
+    else ("Warning" if pred_rul <= 75 else "Normal")
 )
 status_class = (
     "unavailable"
@@ -386,27 +337,25 @@ st.caption(
     f"{active_eval['estimate_source']}"
 )
 kpi_rul, kpi_health, kpi_component = st.columns(3)
-with kpi_rul, st.container(border=True):
-    st.metric("Predicted remaining life", rul_display)
-with kpi_health, st.container(border=True):
+with kpi_rul, st.container(border=True, height="stretch"):
+    st.caption("PREDICTED REMAINING LIFE")
+    st.subheader(rul_display)
+with kpi_health, st.container(border=True, height="stretch"):
     st.caption("PREDICTED HEALTH")
     st.markdown(
         f"<span class='status-badge-{status_class}'>{status_label}</span>", unsafe_allow_html=True
     )
-    st.caption("No prediction available" if pred_rul is None else "Based on the selected estimate")
-with kpi_component, st.container(border=True):
-    st.caption("SUSPECTED COMPONENT")
-    st.subheader(diagnosis.station_id if diagnosis and pred_rul <= 75 else "—")
-    st.caption(
-        diagnosis.module_name
-        if diagnosis and pred_rul <= 75
-        else "No component flagged"
-        if diagnosis
-        else "Unavailable for this model"
-    )
+    st.caption("No prediction available" if pred_rul is None else "RUL band only: Critical ≤30; Warning >30–75; Normal >75 cycles")
+with kpi_component, st.container(border=True, height="stretch"):
+    st.caption("COMPONENT IDENTIFICATION")
+    st.subheader("High-pressure compressor (HPC)" if pred_rul is not None else "Unavailable")
+    if pred_rul is not None:
+        st.caption("Closest to failure · FD001 scenario")
+    else:
+        st.caption("Run an available model to assess remaining life.")
 
-tab_main, tab_components, tab_routes, tab_evaluation = st.tabs(
-    ["Overview", "Component details", "Route simulator", "Model evaluation"]
+tab_main, tab_components, tab_evaluation = st.tabs(
+    ["Overview", "Component details", "Model evaluation"]
 )
 
 with tab_main:
@@ -484,25 +433,21 @@ with tab_main:
     with col_action:
         with st.container(border=True):
             st.subheader("Assessment summary")
-            st.caption(
-                f"{active_eval['rationale_source']} · Question: {answered_question[:65]}..."
-                if len(answered_question) > 65
-                else f"{active_eval['rationale_source']} · Question: {answered_question}"
-            )
+            st.caption("Model-generated text or rule-based response; not a verified inspection finding")
             st.markdown(active_eval["cot_diagnostics"])
         with st.container(border=True):
             st.subheader("Suggested next action")
             if pred_rul is None:
-                st.write("Load a trained model or select XGBoost to generate an estimate.")
+                st.write("Load a saved model to generate an estimate.")
             elif pred_rul <= 30:
-                st.write("Review the overhaul recommendation in Component details.")
+                st.write("Prioritize review of the low RUL estimate and sensor history.")
             elif pred_rul <= 75:
-                st.write("Review the inspection recommendation and evaluate the proposed route.")
+                st.write("Review the estimate and sensor history for inspection planning.")
             else:
                 st.write(
                     "Continue monitoring sensor trends and review the next inspection interval."
                 )
-            st.caption("Route decisions use this same remaining-life estimate.")
+            st.caption("Illustrative suggestions based on RUL bands; no maintenance action is established.")
         with st.container(border=True):
             st.subheader("Supporting evidence")
             if diagnosis:
@@ -527,151 +472,42 @@ with tab_main:
             st.image(str(schematic_path), width="stretch")
 
 with tab_components:
-    st.subheader("Component diagnosis")
-    if active_eval.get("component_status") == "SUPPORTED" and active_eval.get(
-        "component_diagnosis"
-    ):
+    st.subheader("Component observations")
+    st.caption("Measured sensor changes, scenario context, and rule-based suggestions are shown separately.")
+    if pred_rul is not None:
+        with st.container(border=True):
+            st.subheader("Closest-to-failure component: High-pressure compressor (HPC)")
+            st.write("Station 30 · Compressor assembly")
+            st.metric("Engine remaining life", rul_display)
+            st.caption(
+                "Assigned from the FD001 HPC degradation scenario. The estimate is engine-level; "
+                "separate lifetimes for blades, vanes, and other components are not available."
+            )
+    if active_eval.get("component_diagnosis"):
         diag: ComponentFaultDiagnosis = active_eval["component_diagnosis"]
-
-        col_f1, col_f2 = st.columns([13, 7])
-        with col_f1:
-            with st.container(border=True):
-                st.markdown(f"#### Component: `{diag.module_name}`")
-                st.markdown(f"**Physical Location**: `{diag.station_name}`")
-                st.markdown(f"**Identified Failure Mode**: {diag.fault_mode}")
-                st.markdown(
-                    f"<div style='font-size: 0.9rem; color: #CBD5E1; margin-top: 6px;'>{diag.degradation_mechanism}</div>",
-                    unsafe_allow_html=True,
-                )
-
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.caption("Coupled Thermodynamic Evidence (NASA C-MAPSS Telemetry Drift):")
-                for ev in diag.thermodynamic_evidence:
-                    st.markdown(f"- `{ev}`")
-
-        with col_f2:
-            with st.container(border=True):
-                st.markdown("#### Maintenance recommendation")
-                if diag.replacement_urgency == "AOG_CRITICAL":
-                    st.markdown(
-                        "<span class='status-badge-critical'> AOG CRITICAL OVERHAUL</span>",
-                        unsafe_allow_html=True,
-                    )
-                elif diag.replacement_urgency == "PREVENTIVE_INSPECTION":
-                    st.markdown(
-                        "<span class='status-badge-warning'> PREVENTIVE BORESCOPE INSPECTION</span>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown(
-                        "<span class='status-badge-normal'> ALL PARTS NOMINAL</span>",
-                        unsafe_allow_html=True,
-                    )
-
-                st.markdown(
-                    f"<br>**MRO Work Order**: `{diag.maintenance_order}`", unsafe_allow_html=True
-                )
-                st.markdown(f"**Standard Task Card**: `{diag.borescope_inspection_task}`")
-                st.markdown(
-                    f"**Isolation Confidence**: `{diag.confidence_score * 100:.1f}% Physics Coupling`"
-                )
-                st.markdown(
-                    f"<div style='font-size: 0.88rem; color: #94A3B8; margin-top: 8px;'>{diag.action_summary}</div>",
-                    unsafe_allow_html=True,
-                )
-
-        st.markdown("#### Parts & maintenance tasks")
+        observation_col, suggestion_col = st.columns([13, 7], vertical_alignment="top")
+        with observation_col, st.container(border=True):
+            st.subheader("Observed sensor changes")
+            st.caption("Calculated from the selected window. Endpoint changes do not measure a trend’s statistical significance.")
+            for observation in diag.thermodynamic_evidence:
+                st.write(observation)
+            st.markdown(f"**Sensor-rule match:** {diag.sensor_rule_match}")
+            st.caption("Demonstration rule: T50 increase >2°R AND Ps30 decrease >0.15 psia. These thresholds are manually specified, not validated fault probabilities.")
+            st.markdown("**Scenario component:** High-pressure compressor (HPC) · Station 30")
+            st.write(diag.degradation_mechanism)
+        with suggestion_col, st.container(border=True):
+            st.subheader("Illustrative maintenance suggestion")
+            st.metric("Model-predicted RUL", rul_display)
+            st.caption("Rule basis: ≤30 cycles → priority review; >30–75 → planning review; >75 → monitoring.")
+            st.write(diag.action_summary)
+            st.caption("This suggestion is selected by a rule, not generated by the language model. It does not establish a replacement requirement or airworthiness status.")
         with st.container(border=True):
-            cols_h = st.columns([5, 3, 3, 3, 3, 3])
-            cols_h[0].markdown("**Part Name / Assembly**")
-            cols_h[1].markdown("**OEM Part No.**")
-            cols_h[2].markdown("**Subsystem Station**")
-            cols_h[3].markdown("**Replacement Urgency**")
-            cols_h[4].markdown("**Standard Task Card**")
-            cols_h[5].markdown("**Spares Availability**")
-
-            st.markdown("---")
-
-            for part in diag.replacement_parts:
-                p_cols = st.columns([5, 3, 3, 3, 3, 3])
-                p_cols[0].markdown(f"**{part.part_name}**")
-                p_cols[1].code(part.oem_part_number)
-                p_cols[2].caption(part.subsystem)
-
-                if part.replacement_status == "IMMEDIATE_REPLACE":
-                    p_cols[3].markdown(
-                        "<span class='part-pill-critical'> IMMEDIATE</span>",
-                        unsafe_allow_html=True,
-                    )
-                elif part.replacement_status == "STAGE_KIT":
-                    p_cols[3].markdown(
-                        "<span class='part-pill-warning'> STAGE KIT</span>",
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    p_cols[3].markdown(
-                        "<span class='part-pill-nominal'> NOMINAL</span>",
-                        unsafe_allow_html=True,
-                    )
-
-                p_cols[4].caption(part.standard_task_card)
-                p_cols[5].caption(part.estimated_lead_time)
-
+            st.subheader("Information needed for a maintenance decision")
+            st.write("Verify the prediction against inspection findings and maintenance history. Use the applicable approved maintenance documentation to determine any required action.")
+            st.caption("No verified parts catalog, task cards, work orders, or inventory source is connected. Part numbers and stock claims are therefore not displayed.")
     else:
-        with st.container(border=True):
-            st.info("Model unavailable" if pred_rul is None else "Component diagnosis unavailable")
-            st.caption(active_eval["component_unsupported_reason"])
-
-
-with tab_routes:
-    st.subheader("Route simulator")
-    st.caption("Compare the selected estimate with the demonstration route requirements.")
-    r_col1, r_col2 = st.columns([10, 10])
-
-    with r_col1:
-        st.markdown("#### Select Proposed Flight Route")
-        route = st.selectbox(
-            "Target Flight Segment",
-            [
-                "Route 1: Trans-Atlantic ETOPS (JFK ──► LHR, 7.5 hrs | Min Safety Margin: 100 Cycles)",
-                "Route 2: Continental Trunk (ORD ──► LAX, 4.2 hrs | Min Safety Margin: 45 Cycles)",
-                "Route 3: Regional Hub Spoke (ORD ──► DTW, 1.1 hrs | Min Safety Margin: 15 Cycles)",
-            ],
-            index=0,
-        )
-
-        required_margin = 100 if "Route 1" in route else (45 if "Route 2" in route else 15)
-
-    with r_col2:
-        st.markdown("#### Simulation result")
-        st.caption(active_eval["estimate_source"])
-        eval_rul = active_eval["pred_rul"]
-
-        if eval_rul is None:
-            st.info("Model unavailable")
-            st.caption("No route decision can be calculated without an estimate.")
-        elif eval_rul >= required_margin:
-            st.markdown(
-                f"""
-            <div class='route-cleared'>
-                ROUTE REQUIREMENT MET<br>
-                The selected estimate is {eval_rul:.1f} remaining cycles; this route requires at least {required_margin} cycles.
-            </div>
-            """,
-                unsafe_allow_html=True,
-            )
-            st.caption("The estimated remaining life meets this demonstration threshold.")
-        else:
-            st.markdown(
-                f"""
-            <div class='route-restricted'>
-                ROUTE REQUIREMENT NOT MET<br>
-                The selected estimate is {eval_rul:.1f} remaining cycles; this route requires at least {required_margin} cycles.
-            </div>
-            """,
-                unsafe_allow_html=True,
-            )
-            st.caption("Review another route or the component maintenance recommendation.")
+        st.info("Sensor-rule observations are unavailable for this model.")
+        st.caption("A RUL estimate alone does not identify a faulty component.")
 
 
 with tab_evaluation:
@@ -859,3 +695,64 @@ with tab_evaluation:
 
             Dropping these 7 invariant channels eliminates zero-variance noise and prevents singular covariance matrices during neural network training.
             """)
+
+
+st.divider()
+with st.container(border=True):
+    st.subheader("Operational questions")
+    st.caption("Choose an example question to edit, or select Custom question to write your own.")
+    q_input_col, q_sel_col = st.columns([2, 1], vertical_alignment="top")
+    with q_sel_col:
+        selected_preset = st.selectbox(
+            "Example questions",
+            list(QUESTION_PRESETS.keys()),
+            index=0,
+            help="Each topic loads a ready-written question in the question box. You can edit it before asking.",
+        )
+    default_text = QUESTION_PRESETS[selected_preset]
+    if selected_preset == "Custom question":
+        default_text = ""
+
+    with q_input_col, st.form("operational_question", border=False):
+        user_prompt = st.text_area(
+            "Your question",
+            height=150,
+            placeholder="Ask about the selected engine’s sensor trends or remaining useful life…",
+            value=default_text,
+            key=f"question_{selected_preset}_{selected_unit}_{selected_cycle}",
+            help="Your question uses the selected engine and cycle. Click Ask question to submit; Enter adds a new line.",
+        )
+
+        question_btn = st.form_submit_button(
+            "Ask question", type="primary",
+            disabled=selected_model_type != "AeroGuard TSLM" or predictor is None,
+        )
+    if selected_model_type != "AeroGuard TSLM" or predictor is None:
+        st.caption("Select an available AeroGuard TSLM model to answer questions.")
+    if question_btn and not user_prompt.strip():
+        st.warning("Write a question before asking.")
+        question_btn = False
+
+st.divider()
+
+with st.container(border=True):
+    if question_btn:
+        with st.spinner("Answering your question…"):
+            try:
+                answer = predictor.assess_record(
+                    active_record, prompt=user_prompt.strip(), max_new_tokens=128
+                )
+                st.session_state["question_result"] = {
+                    "key": assessment_key,
+                    "question": user_prompt.strip(),
+                    "answer": answer.cot_diagnostics,
+                }
+            except Exception:
+                st.session_state.pop("question_result", None)
+                st.error("The question could not be answered. Please try again.")
+    question_result = st.session_state.get("question_result")
+    if question_result and question_result["key"] == assessment_key:
+        st.caption(question_result["question"])
+        st.markdown(question_result["answer"])
+    else:
+        st.caption("Ask a question about the selected engine and cycle.")
