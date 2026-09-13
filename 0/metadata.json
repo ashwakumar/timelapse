@@ -1,0 +1,54 @@
+{
+  "cli_version": "0.10.6",
+  "checkpoint_id": "01M2D39V30ZN8CV6DRTSH7CNX0",
+  "session_id": "01a099d3-4be2-7a02-92ce-bb570814c81c",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-13T09:59:15.590996204Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".gitignore",
+    "notebooks/01_raw_telemetry_exploration.ipynb",
+    "notebooks/02_windowing_and_dataset_loader.ipynb",
+    "notebooks/03_model_inference_precheck.ipynb",
+    "notebooks/04_generate_slide_plots.ipynb",
+    "scripts/generate_benchmark_summary.py",
+    "scripts/run_demonstration.py",
+    "scripts/run_pipeline.py",
+    "training/tests/test_saved_baselines.py",
+    "training/train_baselines.py",
+    "training/train_opentslm.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-6-astra",
+  "turn_id": "440360d8827d",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 102944,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 2826112,
+    "output_tokens": 11260,
+    "api_call_count": 50
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-09-13T09:59:15.509425325Z",
+    "agent_lines": 169,
+    "agent_removed": 3107,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 169,
+    "total_lines_changed": 3276,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    }
+  ]
+}
