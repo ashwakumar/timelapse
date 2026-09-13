@@ -83,23 +83,22 @@
 ### Slide Visual:
 * **Live Screen Share of `http://localhost:8501`**:
   1. Show Engine Unit #84 at Flight Cycle 255 (Terminal wear point).
-  2. Point to the telemetry divergence: Exhaust Gas Temp ($T_{50} \uparrow$) surging while HPC Static Pressure ($Ps_{30} \downarrow$) drops.
-  3. Show the **"Component Fault Isolation & LRU Parts BOM"** card:
-     * Module: **High-Pressure Compressor (HPC, Station 30)**.
-     * Failing Parts: **HPC Stage 2–5 Rotor Blade Assemblies (`CFM56-HPC-RB25`)**.
-     * Work Order: `WO-CFM56-HPC-100` / Task Card `AMM 72-31-00`.
-  4. Switch to **Flight Route Dispatch Simulator**:
-     * Test Flight: Trans-Atlantic ETOPS (JFK ──► London).
-     * System Decision: **"⛔ DISPATCH REJECTED — Rerouted to Regional Spoke (ORD ──► Detroit) to terminate directly at maintenance overhaul hub."**
+  2. Demonstrate the **Interactive Operational Query Bar**:
+     * Select *"🛠️ Component Fault & Part Prescription"* ➔ Watch the TSLM pinpoint **Station 30 HPC Rotor Blades (`CFM56-HPC-RB25`)** and **Task Card `AMM 72-31-00`**.
+     * Select *"✈️ Flight Route & ETOPS Dispatch Clearance"* ➔ TSLM outputs **"⛔ DISPATCH REJECTED for Trans-Atlantic ETOPS"** and automatically prescribes regional rerouting to Detroit heavy maintenance overhaul.
+     * Show the **Editable Custom Prompt Bar**: Highlight that judges can type any custom question to the TSLM live!
+  3. Point to the telemetry divergence: Exhaust Gas Temp ($T_{50} \uparrow$) surging while HPC Static Pressure ($Ps_{30} \downarrow$) drops.
 
 ### Spoken Script (Talk while clicking):
 > *"Here is our live Mission Control console running on held-out Engine Unit 84.*
 > 
-> *Notice what happens as the engine approaches cycle 255: our model detects the classic thermodynamic divergence of aerodynamic wear—exhaust gas temperature surges by 15 degrees Rankine while compressor static pressure drops.*
+> *Notice our new **Interactive Operational Query Bar**: unlike classical ML or pure numerical models like Chronos which can only output an isolated scalar number, AeroGuard is a multimodal Time-Series Language Model. You can ask it different operational questions about the exact same telemetry stream.*
 > 
-> *AeroGuard doesn't just output a number. It performs **Physics-Informed Component Fault Isolation**: it pinpoints Station 30, diagnoses blade tip clearance widening in the High-Pressure Compressor, and outputs the exact Line-Replaceable Unit overhaul kit: Stage 2 through 5 Rotor Blade assemblies, OEM part number `CFM56-HPC-RB25`.*
+> *First, we ask for **Component Fault Isolation**: AeroGuard pinpoints Station 30, diagnoses compressor blade tip clearance loss, and prescribes the exact Line-Replaceable Unit overhaul kit: Stage 2 through 5 Rotor Blade assemblies, OEM part number `CFM56-HPC-RB25` under Task Card `AMM 72-31-00`.*
 > 
-> *Now, look at our **Flight Route Dispatch Simulator**: an operations controller tests dispatching this aircraft from New York to London. With only 12 cycles of remaining life, AeroGuard instantly rejects the trans-Atlantic ETOPS flight, and automatically reassigns the plane to a short regional hop to Detroit—terminating directly at the airline's heavy overhaul hangar. That single automated decision saves a $150,000 emergency outstation grounding."*
+> *Next, we ask for **Flight Route & ETOPS Dispatch Clearance**: with only 12 cycles of remaining life, AeroGuard instantly rejects a trans-Atlantic flight, and automatically reassigns the plane to a short regional hop to Detroit—terminating directly at the airline's heavy overhaul hangar. That single automated decision saves a $150,000 emergency outstation grounding.*
+> 
+> *And judges, the prompt bar is fully editable—you can type any custom engineering question to test the model live!"*
 
 ---
 

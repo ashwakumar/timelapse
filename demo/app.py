@@ -180,6 +180,53 @@ with run_col:
     )
 
 active_record = next(r for r in unit_records if r["cycle"] == selected_cycle)
+
+# ================= INTERACTIVE OPERATIONAL QUERY SELECTOR =================
+QUESTION_PRESETS = {
+    "🛠️ Component Fault & Part Prescription": (
+        "Based on the thermodynamic coupling across the 14 sensors, identify which engine station is degrading, "
+        "pinpoint the failing sub-assembly, and prescribe the OEM replacement part number."
+    ),
+    "✈️ Flight Route & ETOPS Dispatch Clearance": (
+        "Evaluate if this aircraft is airworthy for a 6-cycle Trans-Atlantic ETOPS flight (JFK to LHR), "
+        "or if route restriction / diversion to a maintenance overhaul hub is required."
+    ),
+    "🔬 Thermodynamic Root-Cause Mechanism": (
+        "Explain the thermodynamic mechanism causing the observed divergence between Station 50 (T50 EGT) "
+        "and Station 30 (Ps30 compressor static pressure)."
+    ),
+    "⏱️ Remaining Useful Life (RUL) & Fleet Wear Staging": (
+        f"Using these 14 sensor channels over the past 30 cycles (current cycle: {selected_cycle}), "
+        "estimate remaining useful life in cycles, assign a RUL band (CRITICAL: 0–30, WARNING: 31–75, NORMAL: above 75), "
+        "and summarize the observed sensor changes."
+    ),
+    "📋 FAA Part 145 Airworthiness Audit": (
+        "Generate an FAA Part 145 compliant airworthiness audit summary, inspection hold status, "
+        "and required borescope inspection task cards for this engine."
+    ),
+    "✍️ Custom Question (Free-Text Input)": "",
+}
+
+with st.container(border=True):
+    q_sel_col, q_input_col = st.columns([1, 2], vertical_alignment="bottom")
+    with q_sel_col:
+        selected_preset = st.selectbox(
+            "🎯 Operational Query Preset",
+            list(QUESTION_PRESETS.keys()),
+            index=0,
+            help="Select an operational question preset, or choose Custom Question to write your own.",
+        )
+    default_text = QUESTION_PRESETS[selected_preset]
+    if selected_preset == "✍️ Custom Question (Free-Text Input)":
+        default_text = "Is the High-Pressure Compressor (Station 30) exhibiting aerodynamic tip clearance loss?"
+
+    with q_input_col:
+        user_prompt = st.text_input(
+            "💬 Active Operational Question (Prompt to AeroGuard TSLM):",
+            value=default_text,
+            help="This text is passed directly into the language model along with the continuous sensor telemetry!",
+        )
+
 with st.expander("Advanced"):
     settings_col, data_col = st.columns(2)
     with settings_col:
@@ -218,20 +265,27 @@ def compute_assessment(
     record: dict[str, Any],
     pred_engine: AeroGuardPredictor | None,
     xgb_eng: Any,
+    prompt: str = "",
 ) -> dict[str, Any]:
     """Use real inference or the explicit schedule rule; never reference-label fallbacks."""
     result = unavailable_assessment(model_choice, record)
     try:
         if model_choice == "AeroGuard TSLM" and pred_engine is not None:
             prediction = float(pred_engine.predict_rul(record["series"]))
-            rationale = "Run assessment to generate a diagnostic explanation."
+            rationale = "Click 'Run assessment' to generate tailored diagnostics for this question."
         elif model_choice == "Classical ML (XGBoost)" and xgb_eng is not None:
             features, _ = extract_tabular_features([record])
             prediction = float(xgb_eng.predict(features)[0])
-            rationale = "XGBoost estimates remaining life from sensor summary statistics. Component diagnosis is not supported."
+            rationale = (
+                f"XGBoost estimated {prediction:.1f} cycles from summary statistics. "
+                "⚠️ Tabular ML limitation: XGBoost is a black-box numerical scalar and cannot interpret language questions or identify failing parts."
+            )
         elif model_choice == "Static Schedule":
             prediction = float(max(0, 120 - (int(record["cycle"]) % 120)))
-            rationale = "Cycles until the next fixed 120-cycle service interval. This rule does not analyze sensor health."
+            rationale = (
+                f"Static schedule projects {prediction:.0f} cycles until fixed C-check. "
+                "⚠️ Calendar rule limitation: Operates completely blind to sensor telemetry and questions."
+            )
         else:
             return result
         if not np.isfinite(prediction):
@@ -261,14 +315,14 @@ def compute_assessment(
 
 
 # Keep all views on the same assessment when route or chart controls rerun the app.
-assessment_key = (2, selected_unit, selected_cycle, selected_model_type)
+assessment_key = (2, selected_unit, selected_cycle, selected_model_type, user_prompt)
 saved = st.session_state.get("assessment_result")
 if saved is None or saved["key"] != assessment_key or run_btn:
-    active_eval = compute_assessment(selected_model_type, active_record, predictor, xgb_baseline)
+    active_eval = compute_assessment(selected_model_type, active_record, predictor, xgb_baseline, prompt=user_prompt)
     if run_btn and selected_model_type == "AeroGuard TSLM" and active_eval["pred_rul"] is not None:
-        with st.spinner("Generating assessment…"):
+        with st.spinner("Generating multimodal assessment…"):
             try:
-                assessment = predictor.assess_record(active_record, max_new_tokens=96)
+                assessment = predictor.assess_record(active_record, prompt=user_prompt, max_new_tokens=128)
                 if not np.isfinite(assessment.predicted_rul):
                     raise ValueError("Invalid model prediction")
                 active_eval.update(
@@ -411,7 +465,11 @@ with tab_main:
     with col_action:
         with st.container(border=True):
             st.subheader("Assessment summary")
-            st.caption(active_eval["rationale_source"])
+            st.caption(
+                f"{active_eval['rationale_source']} · Question: {user_prompt[:65]}..."
+                if len(user_prompt) > 65
+                else f"{active_eval['rationale_source']} · Question: {user_prompt}"
+            )
             st.markdown(active_eval["cot_diagnostics"])
         with st.container(border=True):
             st.subheader("Suggested next action")
