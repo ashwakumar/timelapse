@@ -332,4 +332,18 @@ For the comprehensive scientific, physical, and architectural breakdown, see **[
 
 ## 🤖 Agentic Provenance & Entire Integration
 
-This repository is enabled with **[Entire](https://entire.io/)** (`entire enable`) for developer agent orchestration, checkpoint tracking, and lineage across multi-agent workflows (Claude Code, Codex, Cursor).
+This repository is integrated with **[Entire](https://entire.io/)** (`entire enable`) to ensure rigorous AI developer provenance, automated checkpoint logging, and deterministic lineage across multi-agent workflows.
+
+### 🛠️ Active Agent Ecosystem
+
+| Agent | Configuration Hook | Primary Role & Operational Scope |
+| :--- | :--- | :--- |
+| **Claude Code** | [`.claude/settings.json`](.claude/settings.json) | CLI task automation, pipeline scaffolding, script debugging, and environment sanity checks |
+| **OpenAI Codex** | [`.codex/hooks.json`](.codex/hooks.json) | Codebase architecture review, baseline model integration, and background execution |
+| **Cursor** | [`.cursor/hooks.json`](.cursor/hooks.json) | Interactive IDE pair programming, multi-file code editing, and UI component styling |
+| **Antigravity IDE** | Pair Programming | End-to-end turbofan multimodal architecture, prefix token fusion, and slide plot generation |
+
+### 🔒 Checkpoint Tracking & Integrity
+- **Storage Engine**: Primary Git-refs checkpointing (`.entire/settings.json`)
+- **Lifecycle Hooks**: Automated pre-prompt and post-tool capture (`PreToolUse`, `PostToolUse`, `SessionStart`, `SessionEnd`)
+- **Auditability**: Complete step-by-step traceability from raw NASA C-MAPSS telemetry ingestion through final evaluation benchmarks on held-out test engines
