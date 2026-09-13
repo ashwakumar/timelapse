@@ -1,2 +1,0 @@
-# Connector-local dependency. TimeNet itself already supplies NumPy.
-numpy>=2.1

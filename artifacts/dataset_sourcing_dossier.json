@@ -1,0 +1,128 @@
+{
+  "problem_specification": {
+    "target_user": {
+      "role": "Aerospace Fleet Reliability Engineer & Maintenance Operations Manager",
+      "organization": "Commercial & Defense Aviation Operators / MRO Facilities",
+      "primary_objective": "Proactively detect sub-component gas-turbine degradation, forecast Remaining Useful Life (RUL) with high precision, and schedule shop-level maintenance before unscheduled engine removals (UER) or in-flight shutdowns (IFSD)."
+    },
+    "problem_formulation": {
+      "domain": "Turbofan Engine Predictive Maintenance & Aerothermal Prognostics",
+      "challenge": "Aero-engines operate under harsh cyclic thermal and mechanical stresses. Traditional threshold alerts trigger too late, risking catastrophic failure, while scheduled time-based maintenance leads to premature, costly overhaul of healthy components. A multimodal temporal intelligence model must reason over multivariate continuous sensor waveforms to provide both an accurate scalar RUL forecast and natural language engineering rationales.",
+      "target_capabilities": [
+        "Continuous multi-sensor temporal drift monitoring across flight cycles.",
+        "Physically grounded thermodynamic degradation detection (HPC stall margin erosion).",
+        "Zero-leakage split partitioning by physical engine asset ID.",
+        "Actionable shop-level maintenance prescriptions based on wear severity."
+      ]
+    }
+  },
+  "candidate_evaluations": [
+    {
+      "id": "nasa/cmapss-fd001",
+      "name": "NASA C-MAPSS Turbofan Degradation (FD001)",
+      "provider": "NASA Ames Prognostics Center of Excellence (PCoE)",
+      "operating_conditions": 1,
+      "fault_modes": 1,
+      "engines_count": 100,
+      "total_cycles": 20631,
+      "sensors_count": 21,
+      "active_degradation_sensors": 14,
+      "license": "CC0-1.0 (Public Domain)",
+      "temporal_granularity": "Flight cycle (run-to-failure)",
+      "suitability_score": 9.5,
+      "suitability_rationale": "Optimal baseline benchmark: single operating regime eliminates confounding ambient temperature/altitude effects, isolating pure thermodynamic degradation dynamics. Extensively benchmarked across academic literature with established scoring functions.",
+      "selected": true
+    },
+    {
+      "id": "nasa/cmapss-fd002",
+      "name": "NASA C-MAPSS Turbofan Degradation (FD002)",
+      "provider": "NASA Ames PCoE",
+      "operating_conditions": 6,
+      "fault_modes": 1,
+      "engines_count": 260,
+      "total_cycles": 53759,
+      "sensors_count": 21,
+      "active_degradation_sensors": 21,
+      "license": "CC0-1.0 (Public Domain)",
+      "temporal_granularity": "Flight cycle (run-to-failure)",
+      "suitability_score": 8.0,
+      "suitability_rationale": "Strong candidate for regime generalization, but requires complex flight envelope normalization that obscures core temporal reasoning in initial benchmark baseline.",
+      "selected": false
+    },
+    {
+      "id": "nasa/ncmapss",
+      "name": "NASA N-CMAPSS Commercial Aircraft Telemetry",
+      "provider": "NASA Ames PCoE",
+      "operating_conditions": 9,
+      "fault_modes": 2,
+      "engines_count": 15,
+      "total_cycles": 89000,
+      "sensors_count": 47,
+      "active_degradation_sensors": 14,
+      "license": "NASA Open Source Agreement",
+      "temporal_granularity": "1 Hz sampling per flight profile",
+      "suitability_score": 7.8,
+      "suitability_rationale": "Higher fidelity sub-second sampling and full flight profiles, but heavy storage (~50GB) and lower engine population (15 units) constrain rapid agile training loops.",
+      "selected": false
+    },
+    {
+      "id": "phm08-challenge",
+      "name": "PHM08 Prognostics Data Challenge",
+      "provider": "Prognostics and Health Management Society",
+      "operating_conditions": 6,
+      "fault_modes": 1,
+      "engines_count": 218,
+      "total_cycles": 42500,
+      "sensors_count": 21,
+      "active_degradation_sensors": 14,
+      "license": "Academic / Competition Use",
+      "temporal_granularity": "Flight cycle",
+      "suitability_score": 7.2,
+      "suitability_rationale": "Derivative of C-MAPSS with masked ground-truth test labels, making offline evaluation transparency and verifiable held-out scoring less reproducible.",
+      "selected": false
+    }
+  ],
+  "selected_dataset": {
+    "id": "nasa/cmapss-fd001",
+    "name": "NASA C-MAPSS Turbofan Degradation (FD001)",
+    "provider": "NASA Ames Prognostics Center of Excellence (PCoE)",
+    "operating_conditions": 1,
+    "fault_modes": 1,
+    "engines_count": 100,
+    "total_cycles": 20631,
+    "sensors_count": 21,
+    "active_degradation_sensors": 14,
+    "license": "CC0-1.0 (Public Domain)",
+    "temporal_granularity": "Flight cycle (run-to-failure)",
+    "suitability_score": 9.5,
+    "suitability_rationale": "Optimal baseline benchmark: single operating regime eliminates confounding ambient temperature/altitude effects, isolating pure thermodynamic degradation dynamics. Extensively benchmarked across academic literature with established scoring functions.",
+    "selected": true
+  },
+  "raw_data_file": "data/raw/train_FD001.txt",
+  "sha256_checksum": "963b5e22825b34d8b21c69e1aeb4af3e647050eb672ee8834ba4b5d91d2de0f8",
+  "total_records": 20631,
+  "engine_count": 100,
+  "min_lifetime_cycles": 128,
+  "max_lifetime_cycles": 362,
+  "mean_lifetime_cycles": 206.31,
+  "selected_channels": [
+    "T24_lpc_outlet_temp (sensor_2)",
+    "T30_hpc_outlet_temp (sensor_3)",
+    "T50_lpt_outlet_temp (sensor_4)",
+    "P30_hpc_outlet_press (sensor_7)",
+    "Nf_fan_speed (sensor_8)",
+    "Nc_core_speed (sensor_9)",
+    "Ps30_hpc_static_press (sensor_11)",
+    "phi_fuel_flow_ratio (sensor_12)",
+    "NRf_corr_fan_speed (sensor_13)",
+    "NRc_corr_core_speed (sensor_14)",
+    "BPR_bypass_ratio (sensor_15)",
+    "htBleed_enthalpy (sensor_17)",
+    "W31_hpt_coolant_bleed (sensor_20)",
+    "W32_lpt_coolant_bleed (sensor_21)"
+  ],
+  "provenance_receipt": {
+    "url": "https://raw.githubusercontent.com/schwxd/LSTM-Keras-CMAPSS/master/C-MAPSS-Data/train_FD001.txt",
+    "sha256": "963b5e22825b34d8b21c69e1aeb4af3e647050eb672ee8834ba4b5d91d2de0f8"
+  }
+}

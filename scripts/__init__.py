@@ -1,1 +1,1 @@
-"""Command-line data preparation utilities for the timelapse project."""
+"""AeroGuard data preparation and registry command modules."""

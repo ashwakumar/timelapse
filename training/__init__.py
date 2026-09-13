@@ -1,1 +1,1 @@
-"""Training utilities for intraoperative telemetry models."""
+"""AeroGuard data loading, training, and evaluation."""

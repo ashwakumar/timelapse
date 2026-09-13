@@ -1,12 +1,30 @@
+# Local environments and Python/tool caches
 .venv/
-.env
-data/cache/
-data/lstm/
-data/timenet_registry/
-artifacts/feature_screen/window_features.csv.gz
+.venv-*/
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ty_cache/
+.cache/
+*.egg-info/
+
+# Build products and generated run outputs
+build/
+dist/
+#artifacts/
+
+# Downloaded baseline model weights (>100MB / non-repo models)
+models/baselines/text_model/
+models/baselines/chronos/
+archive/models/
+
+# Downloaded / reproducible data; keep data/README.md tracked
+data/raw/
+data/processed/
+
+# Local machine state and credentials
 .DS_Store
-artifacts/opentslm_surgical_telemetry/
-artifacts/run-*/
-data/surgical_telemetry/
+.env
+.env.*
+!.env.example
